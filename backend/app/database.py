@@ -16,7 +16,10 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "sa")
 # Prefer a full DATABASE_URL env var if provided, otherwise build from components.
 # Use the psycopg2 driver explicitly for PostgreSQL.
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+else:
     DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Create engine with sensible defaults for PostgreSQL
