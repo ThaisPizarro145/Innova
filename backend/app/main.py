@@ -32,23 +32,11 @@ ORIGINS = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:.*|http://127\.0\.0\.1:.*",
-    allow_origins=ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Middleware extra: inyecta CORS en respuestas de error (500, etc.)
-# para que el navegador pueda leer el detalle en vez de ver solo "CORS bloqueado"
-@app.middleware("http")
-async def cors_on_errors(request: Request, call_next):
-    response = await call_next(request)
-    origin = request.headers.get("origin", "")
-    if origin in ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-    return response
 
 app.include_router(test.router)
 app.include_router(inventario.router, prefix="/inventario", tags=["Inventario"])
