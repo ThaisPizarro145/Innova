@@ -1,0 +1,23 @@
+/* Botones dentro de la tabla de medicamentos */
+.btn-editar {
+  background: #ffc107;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  margin-right: 4px;
+  font-size: 0.85rem;
+}
+.btn-editar:hover { background: #e0a800; }
+
+.btn-eliminar {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn-eliminar:hover { background: #dc2626; }

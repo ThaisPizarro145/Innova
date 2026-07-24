@@ -1,0 +1,428 @@
+/* ── Página Compras ──────────────────────────────────────────── */
+
+.compras-page {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.compras-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.compras-subtitulo {
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 0.875rem;
+  margin: 0 0 1.25rem;
+}
+
+/* Tabs */
+.compras-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--color-border, #e5e7eb);
+  padding-bottom: 0;
+}
+
+.compras-tab {
+  background: none;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-secondary, #6b7280);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.compras-tab.activo {
+  color: var(--color-primary, #2563eb);
+  border-bottom-color: var(--color-primary, #2563eb);
+  font-weight: 600;
+}
+
+/* Secciones */
+.compras-seccion {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.compras-seccion h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--color-text, #111827);
+}
+
+.compras-seccion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.compras-seccion-header h3 {
+  margin: 0;
+}
+
+/* Campos */
+.compra-campos-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.compra-campo-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 160px;
+  min-width: 130px;
+}
+
+.compra-campo-wide {
+  flex: 2 1 300px;
+}
+
+.compra-campo-grupo label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.compra-campo-grupo input,
+.compra-campo-grupo select {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: var(--color-bg, #f9fafb);
+  transition: border-color 0.15s;
+}
+
+.compra-campo-grupo input:focus,
+.compra-campo-grupo select:focus {
+  outline: none;
+  border-color: var(--color-primary, #2563eb);
+  background: #fff;
+}
+
+/* Fila de detalle de producto */
+.compra-fila-detalle {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+}
+
+.compra-fila-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.compra-fila-num {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary, #2563eb);
+  background: #eff6ff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+}
+
+/* Selector de tipo */
+.compra-tipo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.compra-tipo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--color-bg, #f9fafb);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 110px;
+}
+
+.compra-tipo-btn:hover {
+  border-color: var(--color-primary, #2563eb);
+  background: #eff6ff;
+}
+
+.compra-tipo-btn.activo {
+  border-color: var(--color-primary, #2563eb);
+  background: #eff6ff;
+}
+
+.tipo-icono {
+  font-size: 1.4rem;
+}
+
+.tipo-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.2rem;
+}
+
+.tipo-desc {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary, #6b7280);
+  text-align: center;
+}
+
+/* Panel de sugerencias */
+.compra-preview {
+  margin-top: 0.75rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
+}
+
+.compra-preview-titulo {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #15803d;
+  margin-bottom: 0.75rem;
+}
+
+.compra-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.preview-card {
+  background: #fff;
+  border: 1px solid #d1fae5;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  min-width: 140px;
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.preview-card-nivel2 {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.preview-card-unitario {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.preview-card-stock {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.preview-card-icon {
+  font-size: 1.1rem;
+}
+
+.preview-card-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.preview-card-costo {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.preview-card-precio {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.compra-preview-loading {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+}
+
+/* Totales */
+.compras-totales {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  max-width: 340px;
+  margin-left: auto;
+}
+
+.compra-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  color: #374151;
+}
+
+.compra-total-final {
+  font-weight: 700;
+  font-size: 1rem;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  color: var(--color-primary, #2563eb);
+}
+
+/* Mensajes */
+.compra-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: #b91c1c;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.compra-exito {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: #15803d;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Botones */
+.btn-guardar-compra {
+  width: 100%;
+  padding: 0.9rem;
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-guardar-compra:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.btn-guardar-compra:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-agregar-linea {
+  padding: 0.45rem 1rem;
+  background: #eff6ff;
+  color: var(--color-primary, #2563eb);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-agregar-linea:hover {
+  background: #dbeafe;
+}
+
+.btn-icon {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.9rem;
+}
+
+.btn-danger {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+}
+
+/* Historial */
+.compras-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.compras-tabla th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-bg, #f9fafb);
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 2px solid var(--color-border, #e5e7eb);
+}
+
+.compras-tabla td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.fila-anulada td {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.badge-estado {
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-recibida { background: #d1fae5; color: #065f46; }
+.badge-anulada { background: #fee2e2; color: #991b1b; }
+.badge-pendiente { background: #fef3c7; color: #92400e; }
+
+.compra-loading, .compra-vacio {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .compra-tipo-btn {
+    min-width: 80px;
+    padding: 0.5rem;
+  }
+  .compra-campos-row {
+    flex-direction: column;
+  }
+}
