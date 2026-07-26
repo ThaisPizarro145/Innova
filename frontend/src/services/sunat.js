@@ -1,18 +1,32 @@
 /**
- * Servicio de consulta RUC/DNI usando PeruAPI (peruapi.com)
- * Docs: https://peruapi.com
+ * Consulta RUC/DNI a través del backend de FarmaSys, que hace de proxy
+ * hacia PeruAPI (peruapi.com). No se llama a peruapi.com directo desde el
+ * navegador porque su API no responde el preflight CORS y el navegador
+ * bloquea la petición.
  */
+import { BASE_URL } from "./api";
 
 const STORAGE_TOKEN_KEY = "bodega_apiinti_token";
-const BASE = "https://peruapi.com/api";
-const TOKEN_DEFAULT = "5cd4393ae49a4fab116f959c083c8180";
 
 export function getToken() {
-  return localStorage.getItem(STORAGE_TOKEN_KEY) || TOKEN_DEFAULT;
+  return localStorage.getItem(STORAGE_TOKEN_KEY) || "";
 }
 
 export function setToken(token) {
   localStorage.setItem(STORAGE_TOKEN_KEY, token.trim());
+}
+
+async function consultar(path) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers["X-API-KEY"] = token;
+
+  const res = await fetch(`${BASE_URL}/consulta/${path}`, { method: "GET", headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.message || `Error ${res.status} al consultar.`);
+  }
+  return res.json();
 }
 
 /**
@@ -21,17 +35,7 @@ export function setToken(token) {
  */
 export async function consultarRUC(ruc) {
   if (!/^\d{11}$/.test(ruc.trim())) throw new Error("El RUC debe tener exactamente 11 dígitos.");
-  const res = await fetch(`${BASE}/ruc/${ruc.trim()}`, {
-    method: "GET",
-    headers: { "X-API-KEY": getToken() },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Error ${res.status} al consultar RUC.`);
-  }
-  const data = await res.json();
-  if (data.error || data.success === false) throw new Error(data.message || "RUC no encontrado.");
-  return data;
+  return consultar(`ruc/${ruc.trim()}`);
 }
 
 /**
@@ -40,15 +44,5 @@ export async function consultarRUC(ruc) {
  */
 export async function consultarDNI(dni) {
   if (!/^\d{8}$/.test(dni.trim())) throw new Error("El DNI debe tener exactamente 8 dígitos.");
-  const res = await fetch(`${BASE}/dni/${dni.trim()}`, {
-    method: "GET",
-    headers: { "X-API-KEY": getToken() },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Error ${res.status} al consultar DNI.`);
-  }
-  const data = await res.json();
-  if (data.error || data.success === false) throw new Error(data.message || "DNI no encontrado.");
-  return data;
+  return consultar(`dni/${dni.trim()}`);
 }

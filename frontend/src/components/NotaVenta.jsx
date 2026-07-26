@@ -4,7 +4,7 @@
  * Solo diseño — lógica del sistema intacta.
  */
 
-const EMPRESA = {
+export const EMPRESA = {
   nombre:    "CORPORACION SOMOS ALIADOS S.A.C.",
   ruc:       "10739759931",
   direccion: "AV. LA CULTURA PSJ. C - PUESTO 59",

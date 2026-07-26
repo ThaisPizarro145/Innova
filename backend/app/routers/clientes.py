@@ -51,12 +51,14 @@ def actualizar_cliente(cliente_id: int, cliente: schemas.ClienteUpdate, db: Sess
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return db_cliente
 
-@router.delete("/{cliente_id}", response_model=schemas.ClienteResponse)
+@router.delete("/{cliente_id}")
 def eliminar_cliente(cliente_id: int, db: Session = Depends(get_db)):
-    db_cliente = crud.eliminar_cliente(db, cliente_id)
-    if not db_cliente:
+    resultado, borrado_fisico = crud.eliminar_cliente(db, cliente_id)
+    if resultado is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    return db_cliente
+    datos = resultado if isinstance(resultado, dict) else schemas.ClienteResponse.from_orm(resultado).dict()
+    datos["borrado_fisico"] = borrado_fisico
+    return datos
 
 @router.get("/reporte/frecuentes")
 def clientes_frecuentes(db: Session = Depends(get_db)):

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { getReporteResumen } from "../services/api";
+import { exportarExcelAOA } from "../utils/exportExcel";
 
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
 
@@ -32,11 +33,7 @@ function exportarExcelReporte(datos, periodo) {
     ["Fecha", "Total"],
     ...datos.ventasPorDia.map((r) => [r.fecha, r.total]),
   ];
-  const csv = rows.map((r) => r.join(",")).join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = `reporte_${periodo}.csv`; a.click();
-  URL.revokeObjectURL(url);
+  exportarExcelAOA(`reporte_${periodo}`, rows, "Reporte");
 }
 
 function exportarPDFReporte(datos, periodo) {

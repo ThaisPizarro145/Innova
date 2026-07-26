@@ -5,6 +5,7 @@ import {
   actualizarMovimiento, eliminarMovimiento, getCategoriasConfig,
 } from "../services/api";
 import { stockAmigable } from "../utils/stock";
+import { exportarExcel } from "../utils/exportExcel";
 
 const tiposMovimiento = [
   { value: "ENTRADA", label: "Entrada" },
@@ -160,6 +161,17 @@ function Inventario() {
     } catch (e) { setMensaje(e.message); }
   };
 
+  const exportarMovimientosExcel = () => {
+    const enc = ["ID", "Producto", "Tipo", "Cantidad", "Costo unit.", "Precio venta", "Stock despues", "Lote", "F. Vencimiento", "Fecha registro", "Nota"];
+    const filas = movimientosFiltrados.map((m) => [
+      m.id, nombreProducto(m.producto_id), m.tipo, Number(m.cantidad),
+      Number(m.costo_unitario || 0), Number(m.precio_unitario || 0), m.stock_despues,
+      m.lote || "", m.fecha_vencimiento ? new Date(m.fecha_vencimiento).toLocaleDateString() : "",
+      new Date(m.fecha).toLocaleString(), m.nota || "",
+    ]);
+    exportarExcel("inventario_movimientos", enc, filas, "Movimientos");
+  };
+
   const movimientosFiltrados = movimientos.filter((m) => {
     const fecha = new Date(m.fecha);
     if (filtroFechaDesde && fecha < new Date(filtroFechaDesde)) return false;
@@ -180,7 +192,10 @@ function Inventario() {
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
         <h1>🚚 Compras</h1>
-        <button type="button" className="btn-nuevo" onClick={() => setMostrarForm(true)}>+ Nueva compra</button>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button type="button" className="btn-export" onClick={exportarMovimientosExcel}>⬇ Excel</button>
+          <button type="button" className="btn-nuevo" onClick={() => setMostrarForm(true)}>+ Nueva compra</button>
+        </div>
       </div>
 
       {/* ── Modal nueva compra ── */}

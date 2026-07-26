@@ -48,3 +48,13 @@ input,
 select {
   font: inherit;
 }
+
+.input-sin-flechas::-webkit-outer-spin-button,
+.input-sin-flechas::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input-sin-flechas {
+  -moz-appearance: textfield;
+}

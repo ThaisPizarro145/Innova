@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
-import { getCajaMovimientos, crearCajaMovimiento, eliminarCajaMovimiento } from "../services/api";
+import { getCajaMovimientos, crearCajaMovimiento, eliminarCajaMovimiento, getVentas, getCompras } from "../services/api";
+import { exportarExcel } from "../utils/exportExcel";
 
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
 
@@ -8,30 +9,26 @@ const TIPOS = [
   { value: "EGRESO", label: "Egreso", color: "#dc2626", bg: "#fee2e2" },
 ];
 
+// Las ventas y compras registradas en el sistema se suman automáticamente a
+// Ingresos/Egresos, por eso no aparecen como categorías manuales aquí.
 const CATEGORIAS_CAJA = [
-  "Ventas del día", "Abono de cliente", "Otro ingreso",
+  "Abono de cliente", "Otro ingreso",
   "Alquiler", "Servicios (agua/luz/internet)", "Sueldo / planilla",
-  "Compra de mercadería", "Transporte / flete", "Mantenimiento",
+  "Transporte / flete", "Mantenimiento",
   "Deuda / préstamo", "Impuestos", "Otro egreso",
 ];
 
 const estadoInicial = {
-  tipo: "INGRESO", categoria: "Ventas del día",
+  tipo: "INGRESO", categoria: "Abono de cliente",
   descripcion: "", monto: "", fecha: new Date().toISOString().slice(0, 10),
   es_recurrente: false,
 };
 
 function exportarExcelCaja(movimientos) {
-  const rows = [
-    ["Fecha", "Tipo", "Categoría", "Descripción", "Monto"],
-    ...movimientos.map((m) => [m.fecha, m.tipo, m.categoria, m.descripcion, Number(m.monto).toFixed(2)]),
-  ];
-  const csv = rows.map((r) => r.join(",")).join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob); const a = document.createElement("a");
-  a.href = url; a.download = "caja.csv"; a.click(); URL.revokeObjectURL(url);
+  const enc = ["Fecha", "Tipo", "Categoria", "Descripcion", "Monto"];
+  const filas = movimientos.map((m) => [m.fecha, m.tipo, m.categoria, m.descripcion, Number(m.monto)]);
+  exportarExcel("caja", enc, filas, "Caja");
 }
-
 function exportarPDFCaja(movimientos, resumen) {
   const filas = movimientos.map((m) => {
     const isIngreso = m.tipo === "INGRESO";
@@ -67,21 +64,27 @@ function exportarPDFCaja(movimientos, resumen) {
   const w = window.open("", "_blank"); w.document.write(html); w.document.close(); w.print();
 }
 
+const hoy = () => new Date().toISOString().slice(0, 10);
+
 export default function Caja() {
   const [movimientos, setMovimientos] = useState([]);
+  const [ventas, setVentas] = useState([]);
+  const [compras, setCompras] = useState([]);
   const [form, setForm] = useState({ ...estadoInicial });
   const [mostrarForm, setMostrarForm] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
-  const [filtroDesde, setFiltroDesde] = useState("");
-  const [filtroHasta, setFiltroHasta] = useState("");
+  const [filtroDesde, setFiltroDesde] = useState(hoy());
+  const [filtroHasta, setFiltroHasta] = useState(hoy());
   const [mensaje, setMensaje] = useState("");
 
-  useEffect(() => { cargar(); }, []);
-
   const cargar = async () => {
-    try { setMovimientos(await getCajaMovimientos()); }
-    catch (e) { setMensaje(e.message); }
+    try {
+      const [mov, vts, cmp] = await Promise.all([getCajaMovimientos(), getVentas(), getCompras()]);
+      setMovimientos(mov); setVentas(vts); setCompras(cmp);
+    } catch (e) { setMensaje(e.message); }
   };
+
+  useEffect(() => { cargar(); }, []);
 
   const guardar = async () => {
     if (!form.monto || Number(form.monto) <= 0) { setMensaje("Ingresa un monto válido."); return; }
@@ -107,20 +110,42 @@ export default function Caja() {
     return true;
   }), [movimientos, filtroTipo, filtroDesde, filtroHasta]);
 
+  const enRango = (fechaIso) => {
+    const f = String(fechaIso || "").slice(0, 10);
+    if (filtroDesde && f < filtroDesde) return false;
+    if (filtroHasta && f > filtroHasta) return false;
+    return true;
+  };
+
+  const ventasFiltradas = useMemo(() =>
+    ventas.filter((v) => v.estado !== "ANULADA" && enRango(v.fecha)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ventas, filtroDesde, filtroHasta]);
+
+  const comprasFiltradas = useMemo(() =>
+    compras.filter((c) => c.estado !== "ANULADA" && enRango(c.fecha)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [compras, filtroDesde, filtroHasta]);
+
   const resumen = useMemo(() => {
-    const ingresos = filtrados.filter((m) => m.tipo === "INGRESO").reduce((a, m) => a + Number(m.monto), 0);
-    const egresos = filtrados.filter((m) => m.tipo === "EGRESO").reduce((a, m) => a + Number(m.monto), 0);
-    return { ingresos, egresos, saldo: ingresos - egresos };
-  }, [filtrados]);
+    const otrosIngresos = filtrados.filter((m) => m.tipo === "INGRESO").reduce((a, m) => a + Number(m.monto), 0);
+    const otrosEgresos = filtrados.filter((m) => m.tipo === "EGRESO").reduce((a, m) => a + Number(m.monto), 0);
+    const totalVentas = ventasFiltradas.reduce((a, v) => a + Number(v.total || 0), 0);
+    const totalCompras = comprasFiltradas.reduce((a, c) => a + Number(c.total || 0), 0);
+    const ingresos = totalVentas + otrosIngresos;
+    const egresos = totalCompras + otrosEgresos;
+    return { ingresos, egresos, saldo: ingresos - egresos, totalVentas, totalCompras, otrosIngresos, otrosEgresos };
+  }, [filtrados, ventasFiltradas, comprasFiltradas]);
 
   // Agrupar egresos por categoría para mostrar cuentas por pagar
   const egresoPorCategoria = useMemo(() => {
     const mapa = {};
+    if (resumen.totalCompras > 0) mapa["Compras"] = resumen.totalCompras;
     filtrados.filter((m) => m.tipo === "EGRESO").forEach((m) => {
       mapa[m.categoria] = (mapa[m.categoria] || 0) + Number(m.monto);
     });
     return Object.entries(mapa).sort((a, b) => b[1] - a[1]);
-  }, [filtrados]);
+  }, [filtrados, resumen.totalCompras]);
 
   return (
     <div>
@@ -141,11 +166,17 @@ export default function Caja() {
           <div className="caja-card-icon">📥</div>
           <div className="caja-card-val">{fmt(resumen.ingresos)}</div>
           <div className="caja-card-label">Total ingresos</div>
+          <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: "2px" }}>
+            Ventas {fmt(resumen.totalVentas)} · Otros {fmt(resumen.otrosIngresos)}
+          </div>
         </div>
         <div className="caja-card caja-egreso">
           <div className="caja-card-icon">📤</div>
           <div className="caja-card-val">{fmt(resumen.egresos)}</div>
           <div className="caja-card-label">Total egresos</div>
+          <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: "2px" }}>
+            Compras {fmt(resumen.totalCompras)} · Otros {fmt(resumen.otrosEgresos)}
+          </div>
         </div>
         <div className={`caja-card ${resumen.saldo >= 0 ? "caja-positivo" : "caja-negativo"}`}>
           <div className="caja-card-icon">{resumen.saldo >= 0 ? "✅" : "⚠️"}</div>
@@ -189,6 +220,7 @@ export default function Caja() {
         </div>
         <div className="filtros-grupo"><label>Desde</label><input type="date" value={filtroDesde} onChange={(e) => setFiltroDesde(e.target.value)} /></div>
         <div className="filtros-grupo"><label>Hasta</label><input type="date" value={filtroHasta} onChange={(e) => setFiltroHasta(e.target.value)} /></div>
+        <button type="button" className="btn-periodo" onClick={() => { setFiltroDesde(""); setFiltroHasta(""); }}>Ver todos</button>
       </div>
 
       {/* Tabla movimientos */}
@@ -248,7 +280,7 @@ export default function Caja() {
                         color: form.tipo === t.value ? t.color : "#64748b",
                         fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
                       }}
-                      onClick={() => setForm({ ...form, tipo: t.value, categoria: t.value === "INGRESO" ? "Ventas del día" : "Alquiler" })}>
+                      onClick={() => setForm({ ...form, tipo: t.value, categoria: t.value === "INGRESO" ? "Abono de cliente" : "Alquiler" })}>
                       {t.value === "INGRESO" ? "📥 Ingreso" : "📤 Egreso"}
                     </button>
                   ))}
@@ -258,7 +290,7 @@ export default function Caja() {
                 <label>Categoría</label>
                 <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
                   {CATEGORIAS_CAJA.filter((c) => {
-                    const ingresos = ["Ventas del día", "Abono de cliente", "Otro ingreso"];
+                    const ingresos = ["Abono de cliente", "Otro ingreso"];
                     return form.tipo === "INGRESO" ? ingresos.includes(c) : !ingresos.includes(c);
                   }).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>

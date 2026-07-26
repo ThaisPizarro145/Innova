@@ -97,10 +97,11 @@ function Clientes() {
     if (!cliente.dni && !cliente.ruc && !cliente.nombre && !cliente.razon_social) {
       setMensaje("Complete al menos DNI, RUC o nombre/razón social."); return;
     }
-    // Limpiar campos vacíos a null para no enviar strings vacíos
+    // Limpiar campos vacíos a null (y recortar espacios) para no enviar strings vacíos o con espacios de más
     const payload = {};
     Object.entries(cliente).forEach(([k, v]) => {
-      payload[k] = (v === "" || v === undefined) ? null : v;
+      const limpio = typeof v === "string" ? v.trim() : v;
+      payload[k] = (limpio === "" || limpio === undefined) ? null : limpio;
     });
     try {
       if (editandoId !== null) { await actualizarCliente(editandoId, payload); setMensaje("Cliente actualizado."); }
@@ -124,8 +125,15 @@ function Clientes() {
 
   const eliminar = async (id) => {
     if (!window.confirm("¿Seguro desea eliminar al cliente?")) return;
-    try { await eliminarCliente(id); setMensaje("Cliente eliminado."); cargarClientes(busqueda); }
-    catch (error) { setMensaje(error.message); }
+    try {
+      const resultado = await eliminarCliente(id);
+      setMensaje(
+        resultado?.borrado_fisico
+          ? "Cliente eliminado permanentemente de la base de datos."
+          : "Cliente eliminado. Como tiene ventas registradas, se conservó su historial (no se borra de la base de datos)."
+      );
+      cargarClientes(busqueda);
+    } catch (error) { setMensaje(error.message); }
   };
 
   const verHistorial = async (id) => {

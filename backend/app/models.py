@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Float, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Float, ForeignKey, Text, JSON, Index, text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -97,9 +97,20 @@ class CategoriaConfig(Base):
 
 class Producto(Base):
     __tablename__ = "productos"
+    __table_args__ = (
+        # Único solo entre productos NO eliminados: permite reingresar un
+        # código que quedó "libre" tras un borrado lógico sin chocar contra
+        # el UNIQUE global (evita el error 500 al recrear un producto).
+        Index(
+            "ux_productos_codigo_activo",
+            "codigo",
+            unique=True,
+            postgresql_where=text("eliminado = false"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    codigo = Column(String(80), unique=True, index=True, nullable=False)
+    codigo = Column(String(80), index=True, nullable=False)
     nombre = Column(String(200), nullable=False)
     categoria = Column(String(150), nullable=True)
     proveedor = Column(String(150), nullable=True)
@@ -146,10 +157,27 @@ class Producto(Base):
 
 class Cliente(Base):
     __tablename__ = "clientes"
+    __table_args__ = (
+        # Únicos solo entre clientes NO eliminados y con documento informado:
+        # permite reingresar un DNI/RUC que quedó "libre" tras un borrado
+        # lógico sin chocar contra el UNIQUE global (evita el error 500).
+        Index(
+            "ux_clientes_dni_activo",
+            "dni",
+            unique=True,
+            postgresql_where=text("eliminado = false AND dni IS NOT NULL"),
+        ),
+        Index(
+            "ux_clientes_ruc_activo",
+            "ruc",
+            unique=True,
+            postgresql_where=text("eliminado = false AND ruc IS NOT NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    dni = Column(String(20), unique=True, index=True, nullable=True)
-    ruc = Column(String(20), unique=True, index=True, nullable=True)
+    dni = Column(String(20), index=True, nullable=True)
+    ruc = Column(String(20), index=True, nullable=True)
     nombre = Column(String(150), nullable=True)
     apellidos = Column(String(150), nullable=True)
     razon_social = Column(String(200), nullable=True)
@@ -215,12 +243,14 @@ class Venta(Base):
     serie = Column(String(10), nullable=True)        # NV01, B001, F001
     numero_documento = Column(String(15), nullable=True)  # 00000001
     cliente_nombre = Column(String(200), nullable=True)   # nombre libre si no hay cliente registrado
+    cliente_dni = Column(String(20), nullable=True)        # snapshot del DNI del cliente al momento de la venta
+    cliente_ruc = Column(String(20), nullable=True)        # snapshot del RUC del cliente al momento de la venta
     created_at = Column(DateTime, default=now)
     updated_at = Column(DateTime, default=now, onupdate=now)
 
     cliente = relationship("Cliente", back_populates="ventas")
-    detalles = relationship("VentaDetalle", back_populates="venta")
-    caja = relationship("Caja", back_populates="venta", uselist=False)
+    detalles = relationship("VentaDetalle", back_populates="venta", cascade="all, delete-orphan")
+    caja = relationship("Caja", back_populates="venta", uselist=False, cascade="all, delete-orphan")
 
 
 class VentaDetalle(Base):

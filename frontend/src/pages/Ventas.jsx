@@ -4,21 +4,22 @@ import { useConsultaDoc } from "../hooks/useConsultaDoc";
 import { getEmpresa } from "../services/empresa";
 import { cantidadEnUnidadesBase, stockAmigable } from "../utils/stock";
 import { imprimirNotaVenta, generarComprobanteHTML } from "../components/NotaVenta";
+import { imprimirFactura, descargarFacturaHTML } from "../components/factura/Factura";
+
+const esComprobanteA4 = (tipoDocumento) => tipoDocumento === "BOLETA" || tipoDocumento === "FACTURA";
 
 const SERIES = { BOLETA: "B001", FACTURA: "F001", NOTA_VENTA: "NV01" };
 
-/** Descarga el comprobante usando el diseño de ticket térmico profesional. */
+/** Descarga el comprobante: A4 para Boleta/Factura, ticket térmico para Nota de Venta. */
 function descargarComprobanteDirecto(comp) {
   const tipo = TIPOS_COMPROBANTE.find((t) => t.value === comp.tipo_documento) || TIPOS_COMPROBANTE[0];
   const serie = comp.serie || tipo.serial;
   const numero = comp.numero_documento || String(comp.id || "00000001").padStart(8, "0");
   const numeroCompleto = `${serie}-${numero}`;
-  const html = generarComprobanteHTML({
-    ...comp,
-    serie,
-    numero_documento: numero,
-    clienteDoc: comp.clienteDni || "",
-  });
+  const datos = { ...comp, serie, numero_documento: numero, clienteDoc: comp.clienteDni || "" };
+  const html = esComprobanteA4(comp.tipo_documento)
+    ? descargarFacturaHTML(datos)
+    : generarComprobanteHTML(datos);
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -70,6 +71,14 @@ function getPrecioPresent(producto, presentacion, categoriasConfig = []) {
   return precioBase;
 }
 
+function permiteDecimalesPresentacion(producto, presentacion, categoriasConfig = []) {
+  const cat = producto.categoria
+    ? categoriasConfig.find((c) => c.nombre === producto.categoria)
+    : null;
+  const conv = cat?.conversiones?.[presentacion] || {};
+  return conv.tipo === "peso" || conv.tipo === "fraccion" || conv.tipo === "multinivel";
+}
+
 function getPresentacionesDisponibles(producto, categoriasConfig = []) {
   // 1. Buscar la config de categoría del producto
   const cat = producto.categoria
@@ -105,6 +114,9 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
   const handlePresentacion = (p) => {
     setPresentacion(p);
     setPrecio(getPrecioPresent(producto, p, categoriasConfig));
+    if (!permiteDecimalesPresentacion(producto, p, categoriasConfig)) {
+      setCantidad((c) => Math.max(1, Math.round(c)));
+    }
   };
 
   const subtotal = Number(precio || 0) * Number(cantidad || 0);
@@ -121,6 +133,7 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
     ? categoriasConfig.find((c) => c.nombre === producto.categoria)
     : null;
   const convPres = cat?.conversiones?.[presentacion] || {};
+  const permiteDecimales = convPres.tipo === "peso" || convPres.tipo === "fraccion" || convPres.tipo === "multinivel";
 
   let desglosePrecio = null;
   if (convPres.tipo === "conteo" && convPres.unidades > 0) {
@@ -164,8 +177,11 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
             </select>
           </div>
           <div className="campo"><label>Cantidad</label>
-            <input type="number" min="0.01" step="0.01" value={cantidad}
-              onChange={(e) => setCantidad(Number(e.target.value))} />
+            <input type="number" min={permiteDecimales ? "0.01" : "1"} step={permiteDecimales ? "0.01" : "1"} value={cantidad}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setCantidad(permiteDecimales ? val : Math.round(val));
+              }} />
             <span style={{ fontSize: "0.72rem", color: sinStock ? "#dc2626" : "#64748b" }}>
               {sinStock ? "⚠️ Stock insuficiente" : `Disponible: ${stockEnPresentacion % 1 === 0 ? stockEnPresentacion : stockEnPresentacion.toFixed(2)} ${presentacion}`}
             </span>
@@ -215,10 +231,12 @@ function ModalSelectorDocumento({ carrito, subtotal, igv, total, incluyeIgv, cli
   const [tipoDoc, setTipoDoc] = useState("NOTA_VENTA");
   const [registrando, setRegistrando] = useState(false);
   const tipo = TIPOS_COMPROBANTE.find((t) => t.value === tipoDoc);
+  const rucCliente = String(clienteSeleccionado?.ruc || "").trim();
+  const rucInvalido = tipo.requiereRuc && rucCliente.length !== 11;
 
   const handleConfirmar = async (accion) => {
     if (tipo.requiereRuc) {
-      const ruc = clienteSeleccionado?.ruc || "";
+      const ruc = String(clienteSeleccionado?.ruc || "").trim();
       if (!ruc || ruc.length !== 11) {
         alert("Para emitir Factura se requiere el RUC del cliente (11 dígitos).");
         return;
@@ -279,7 +297,7 @@ function ModalSelectorDocumento({ carrito, subtotal, igv, total, incluyeIgv, cli
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginTop: "6px", fontSize: "1rem", color: "#0f6df2" }}><span>Total:</span><span>{fmt(total)}</span></div>
         </div>
 
-        {tipo.requiereRuc && (
+        {rucInvalido && (
           <p style={{ fontSize: "0.82rem", color: "#d97706", background: "#fef9c3", padding: "8px 12px", borderRadius: "8px", marginBottom: "12px" }}>
             ⚠️ Factura requiere RUC del cliente (11 dígitos).
           </p>
@@ -412,7 +430,6 @@ function Ventas() {
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
   const [mostrarSelectorDoc, setMostrarSelectorDoc] = useState(false);
   const [mostrarVoucher, setMostrarVoucher] = useState(false);
-  const [ventaEditar, setVentaEditar] = useState(null);
   const [productoParaAgregar, setProductoParaAgregar] = useState(null);
 
   // Filtros historial
@@ -474,7 +491,13 @@ function Ventas() {
     debounceRef.current = setTimeout(async () => {
       try {
         const lista = await getClientes(valor);
-        setSugerenciasCliente(lista.slice(0, 6));
+        const termino = valor.trim();
+        const exactas = lista.filter((c) => c.dni === termino || c.ruc === termino);
+        if (exactas.length === 1) {
+          elegirCliente(exactas[0]);
+        } else {
+          setSugerenciasCliente(lista.slice(0, 6));
+        }
       } catch { setSugerenciasCliente([]); }
       finally { setBuscandoCliente(false); }
     }, 300);
@@ -526,7 +549,7 @@ function Ventas() {
 
     try {
       const ventaCreada = await crearVenta({
-        cliente_id: clienteActual ? clienteActual.id : null,
+        cliente_id: clienteActual && !clienteActual._externo ? clienteActual.id : null,
         forma_pago: formaActual,
         descuento: descuentoActual,
         incluye_igv: incluyeIgv,
@@ -535,6 +558,8 @@ function Ventas() {
         cliente_nombre: clienteActual
           ? `${clienteActual.nombre || clienteActual.razon_social || ""} ${clienteActual.apellidos || ""}`.trim()
           : (busquedaActual || null),
+        cliente_dni: clienteActual?.dni || null,
+        cliente_ruc: clienteActual?.ruc || null,
         detalles: itemsCarrito.map((i) => ({
           producto_id: i.producto_id, cantidad: Number(i.cantidad),
           precio_unitario: Number(i.precio_unitario), descuento: Number(i.descuento),
@@ -553,13 +578,19 @@ function Ventas() {
         ? `${clienteActual.nombre || clienteActual.razon_social || ""} ${clienteActual.apellidos || ""}`.trim()
         : (busquedaActual || "Cliente general");
 
-      const itemsComprobante = itemsCarrito.map((i) => ({
-        nombre: i.nombre,
-        cantidad: i.cantidad,
-        presentacion: i.presentacion,
-        precio: Number(i.precio_unitario),
-        total: Number(i.precio_unitario * i.cantidad - i.descuento),
-      }));
+      const itemsComprobante = itemsCarrito.map((i) => {
+        const prod = productos.find((p) => p.id === i.producto_id);
+        return {
+          codigo: prod?.codigo || "",
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          presentacion: i.presentacion,
+          lote: prod?.lote || "",
+          fecha_vencimiento: prod?.fecha_vencimiento || null,
+          precio: Number(i.precio_unitario),
+          total: Number(i.precio_unitario * i.cantidad - i.descuento),
+        };
+      });
 
       const nuevoComprobante = {
         ...ventaCreada,
@@ -567,6 +598,7 @@ function Ventas() {
         clienteDni: clienteActual?.dni || clienteActual?.ruc || "",
         clienteDireccion: clienteActual?.direccion || "",
         forma_pago: formaActual,
+        vendedor: getEmpresa().vendedor || "",
         fecha: new Date().toLocaleString(),
         items: itemsComprobante,
         subtotal: subtotalActual, igv: igvActual, total: totalActual, incluyeIgv,
@@ -589,10 +621,10 @@ function Ventas() {
     cargarVentas().catch(() => {});
   };
 
-  /* ── Imprimir comprobante ── */
+  /* ── Imprimir comprobante (Boleta/Factura → A4; ver ModalComprobante) ── */
   const imprimirComprobante = (tipoDoc, serie) => {
     if (!comprobante) return;
-    imprimirNotaVenta({
+    imprimirFactura({
       ...comprobante,
       tipo_documento: tipoDoc,
       serie,
@@ -786,7 +818,7 @@ function Ventas() {
                         <tr key={item.key}>
                           <td>{item.nombre}</td>
                           <td><span className="tag-presentacion tag-presentacion-lg">{item.presentacion}</span></td>
-                          <td><input type="number" min="0.01" step="0.01" value={item.cantidad} style={{ width: "70px" }} onChange={(e) => cambiarCantidad(item.key, Number(e.target.value))} /></td>
+                          <td><input type="number" className="input-sin-flechas" min="0.01" step="0.01" value={item.cantidad} style={{ width: "70px" }} onChange={(e) => cambiarCantidad(item.key, Number(e.target.value))} /></td>
                           <td><input type="number" min="0" step="0.01" value={item.precio_unitario} style={{ width: "80px" }} onChange={(e) => cambiarPrecio(item.key, Number(e.target.value))} /></td>
                           <td><input type="number" min="0" step="0.01" value={item.descuento} style={{ width: "70px" }} onChange={(e) => cambiarDesc(item.key, Number(e.target.value))} /></td>
                           <td>{fmt(item.precio_unitario * item.cantidad - item.descuento)}</td>
@@ -852,9 +884,8 @@ function Ventas() {
                         <td><span className={`estado-badge ${v.estado === "ANULADA" ? "estado-anulada" : "estado-completada"}`}>{v.estado}</span></td>
                         <td>{v.forma_pago}</td>
                         <td style={{ display: "flex", gap: "6px" }}>
-                          <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => setVentaEditar(v)}>✏️</button>
-                          <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => imprimirVentaHistorial(v)}>🖨️</button>
-                          <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => descargarVentaHistorial(v)}>⬇️</button>
+                          <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => imprimirVentaHistorial(v, productos)}>🖨️</button>
+                          <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => descargarVentaHistorial(v, productos)}>⬇️</button>
                           {v.estado !== "ANULADA" && <button type="button" style={{ background: "#f59e0b", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }} onClick={() => anular(v.id)}>Anular</button>}
                           <button type="button" style={{ background: "#ef4444", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }} onClick={() => eliminar(v.id)}>🗑️</button>
                         </td>
@@ -863,23 +894,6 @@ function Ventas() {
                 </tbody>
               </table>
             </div>
-            {ventaEditar && (
-              <div style={{ marginTop: "20px", background: "#f8fafc", borderRadius: "12px", padding: "16px" }}>
-                <h3 style={{ marginBottom: "12px" }}>✏️ Editar venta #{ventaEditar.id}</h3>
-                <div className="formulario-grid">
-                  <div className="campo"><label>Forma de pago</label>
-                    <select value={ventaEditar.forma_pago} onChange={(e) => setVentaEditar({ ...ventaEditar, forma_pago: e.target.value })}>
-                      {formasPago.map((f) => <option key={f} value={f}>{f}</option>)}
-                    </select></div>
-                  <div className="campo"><label>Cliente</label>
-                    <input value={ventaEditar.cliente_nombre || ""} onChange={(e) => setVentaEditar({ ...ventaEditar, cliente_nombre: e.target.value })} /></div>
-                </div>
-                <div className="modal-acciones" style={{ marginTop: "12px" }}>
-                  <button type="button" className="btn-nuevo" onClick={() => { setMensaje("Cambios guardados."); setVentaEditar(null); }}>💾 Guardar</button>
-                  <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setVentaEditar(null)}>Cancelar</button>
-                </div>
-              </div>
-            )}
             <div style={{ marginTop: "16px", textAlign: "right" }}>
               <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setMostrarHistorial(false)}>Cerrar</button>
             </div>
@@ -890,7 +904,24 @@ function Ventas() {
   );
 }
 
-function imprimirVentaHistorial(venta) {
+/** Mapea los detalles guardados en backend a los ítems que esperan los comprobantes. */
+function itemsDesdeVenta(venta, productos = []) {
+  return (venta.detalles || []).map((d) => {
+    const prod = productos.find((p) => p.id === d.producto_id);
+    return {
+      codigo: prod?.codigo || "",
+      nombre: d.nombre_producto || d.nombre || `Producto #${d.producto_id}`,
+      cantidad: d.cantidad,
+      presentacion: d.presentacion || "UND",
+      lote: d.lote || "",
+      fecha_vencimiento: d.fecha_vencimiento || null,
+      precio: d.precio_unitario,
+      total: d.total || d.precio_unitario * d.cantidad,
+    };
+  });
+}
+
+function imprimirVentaHistorial(venta, productos = []) {
   if (venta.tipo_documento === "NOTA_VENTA" || !venta.tipo_documento) {
     // Ticket térmico para Nota de Venta
     imprimirNotaVenta({
@@ -899,16 +930,10 @@ function imprimirVentaHistorial(venta) {
       numero_documento: venta.numero_documento || String(venta.id).padStart(8, "0"),
       fecha: venta.fecha,
       clienteNombre: venta.cliente_nombre || "Cliente general",
-      clienteDoc: "",
+      clienteDoc: venta.cliente_dni || venta.cliente_ruc || "",
       clienteDireccion: "",
       vendedor: "",
-      items: (venta.detalles || []).map((d) => ({
-        nombre: d.nombre_producto || d.nombre || `Producto #${d.producto_id}`,
-        cantidad: d.cantidad,
-        presentacion: d.presentacion || "UND",
-        precio: d.precio_unitario,
-        total: d.total || d.precio_unitario * d.cantidad,
-      })),
+      items: itemsDesdeVenta(venta, productos),
       subtotal: venta.subtotal || venta.total,
       descuento: venta.descuento || 0,
       total: venta.total,
@@ -917,17 +942,23 @@ function imprimirVentaHistorial(venta) {
     });
     return;
   }
-  // Fallback genérico para Boleta/Factura
-  const html = `<html><head><title>Venta #${venta.id}</title>
-    <style>body{font-family:sans-serif;padding:20px}th,td{border:1px solid #ccc;padding:6px}th{background:#0f6df2;color:#fff}</style></head>
-    <body><h2>Comprobante #${venta.id}</h2>
-    <p>Fecha: ${new Date(venta.fecha).toLocaleString()}</p>
-    <p>Cliente: ${venta.cliente_nombre || "-"} | Pago: ${venta.forma_pago} | Estado: ${venta.estado}</p>
-    <p><strong>Total: S/ ${Number(venta.total||0).toFixed(2)}</strong></p></body></html>`;
-  const w = window.open("","_blank"); w.document.write(html); w.document.close(); w.print();
+  // Boleta / Factura → comprobante A4
+  imprimirFactura({
+    tipo_documento: venta.tipo_documento,
+    serie: venta.serie,
+    numero_documento: venta.numero_documento || String(venta.id).padStart(8, "0"),
+    fecha: venta.fecha,
+    clienteNombre: venta.cliente_nombre || "Cliente general",
+    clienteDni: venta.cliente_dni || venta.cliente_ruc || "",
+    forma_pago: venta.forma_pago,
+    subtotal: venta.subtotal,
+    igv: venta.igv,
+    total: venta.total,
+    items: itemsDesdeVenta(venta, productos),
+  });
 }
 
-function descargarVentaHistorial(venta) {
+function descargarVentaHistorial(venta, productos = []) {
   descargarComprobanteDirecto({
     tipo_documento: venta.tipo_documento || "NOTA_VENTA",
     serie: venta.serie,
@@ -935,18 +966,12 @@ function descargarVentaHistorial(venta) {
     id: venta.id,
     fecha: new Date(venta.fecha).toLocaleString(),
     clienteNombre: venta.cliente_nombre || "Cliente general",
-    clienteDni: "",
+    clienteDni: venta.cliente_dni || venta.cliente_ruc || "",
     forma_pago: venta.forma_pago,
     subtotal: venta.subtotal,
     igv: venta.igv,
     total: venta.total,
-    items: (venta.detalles || []).map((d) => ({
-      nombre: d.nombre_producto || d.nombre || `Producto #${d.producto_id}`,
-      presentacion: d.presentacion || "UND",
-      cantidad: d.cantidad,
-      precio: d.precio_unitario,
-      total: d.total || d.precio_unitario * d.cantidad,
-    })),
+    items: itemsDesdeVenta(venta, productos),
   });
 }
 

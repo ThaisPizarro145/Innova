@@ -323,13 +323,15 @@ class ClienteBase(BaseModel):
 
     @validator("dni")
     def dni_valido(cls, v):
-        if v and v.strip() and len(v.strip()) != 8:
+        v = v.strip() if v else v
+        if v and len(v) != 8:
             raise ValueError("DNI debe tener 8 caracteres")
         return v or None
 
     @validator("ruc")
     def ruc_valido(cls, v):
-        if v and v.strip() and len(v.strip()) != 11:
+        v = v.strip() if v else v
+        if v and len(v) != 11:
             raise ValueError("RUC debe tener 11 caracteres")
         return v or None
 
@@ -362,6 +364,7 @@ class ClienteResponse(ClienteBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class MovimientoInventarioBase(BaseModel):
@@ -435,6 +438,8 @@ class VentaDetalleBase(BaseModel):
 class VentaCreate(BaseModel):
     cliente_id: Optional[int] = None
     cliente_nombre: Optional[str] = None   # nombre libre si no hay cliente registrado
+    cliente_dni: Optional[str] = None      # DNI del cliente cuando no está registrado (ej. consulta RENIEC directa)
+    cliente_ruc: Optional[str] = None      # RUC del cliente cuando no está registrado (ej. consulta SUNAT directa)
     forma_pago: str = Field(...)
     detalles: List[VentaDetalleBase]
     descuento: float = 0.0
@@ -470,6 +475,8 @@ class VentaResponse(BaseModel):
     id: int
     cliente_id: Optional[int]
     cliente_nombre: Optional[str] = None
+    cliente_dni: Optional[str] = None
+    cliente_ruc: Optional[str] = None
     fecha: datetime
     subtotal: float
     descuento: float

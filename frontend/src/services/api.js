@@ -1,4 +1,4 @@
-const BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+export const BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 const STORAGE_KEYS = {
   productos: "farmasys_productos",
@@ -605,183 +605,18 @@ function normalizarCompra(c) {
 }
 
 /**
- * Calcula costos y precios sugeridos en el servidor (o localmente como fallback).
+ * Calcula costos y precios sugeridos. Única fuente de verdad: el backend
+ * (_calcular_detalle_compra / _precios_por_presentacion_categoria en
+ * app/crud.py). No existe cálculo local en el frontend — si el backend no
+ * responde, se propaga el error en vez de mostrar un precio adivinado que
+ * podría no coincidir con lo que Compras terminaría persistiendo.
  * @param {object} item - Objeto CompraDetalleCreate
  */
 export async function previewCalculoCompra(item) {
-  try {
-    return await request("/compras/preview", {
-      method: "POST",
-      body: JSON.stringify(item),
-    });
-  } catch {
-    // Fallback: cálculo local idéntico al backend
-    const pct = (item.porcentaje_ganancia ?? 20) / 100;
-    const mult = 1 + pct;
-    const costoEmpaque = Number(item.precio_empaque);
-    const tipo = item.tipo_presentacion;
-    const nombreEmpaque = item.nombre_empaque || "Empaque";
-
-    if (tipo === "caja_unidad" || tipo === "saco_unidad") {
-      const n = Number(item.unidades_por_empaque);
-      const costoUnitario = costoEmpaque / n;
-      const unidadMenor = tipo === "saco_unidad" ? "Bolsa" : "Unidad";
-      return {
-        costo_empaque: costoEmpaque,
-        costo_unitario: costoUnitario,
-        costo_nivel2: null,
-        precio_venta_empaque: costoEmpaque * mult,
-        precio_venta_unitario: costoUnitario * mult,
-        precio_venta_nivel2: null,
-        stock_ingresado: item.cantidad_empaque * n,
-        unidad_stock: "unidad",
-        presentaciones: [
-          { unidad: nombreEmpaque, costo: costoEmpaque, precio_venta: costoEmpaque * mult, descripcion: `1 ${nombreEmpaque} = ${n} ${unidadMenor}s` },
-          { unidad: unidadMenor, costo: costoUnitario, precio_venta: costoUnitario * mult, descripcion: null },
-        ],
-      };
-    }
-    if (tipo === "saco_kilo") {
-      const kg = Number(item.kg_por_empaque);
-      const costoKilo = costoEmpaque / kg;
-      const costoMedioSaco = costoEmpaque / 2;
-      return {
-        costo_empaque: costoEmpaque,
-        costo_unitario: costoKilo,
-        costo_nivel2: null,
-        precio_venta_empaque: costoEmpaque * mult,
-        precio_venta_unitario: costoKilo * mult,
-        precio_venta_nivel2: null,
-        stock_ingresado: item.cantidad_empaque * kg,
-        unidad_stock: "kilo",
-        presentaciones: [
-          { unidad: nombreEmpaque, costo: costoEmpaque, precio_venta: costoEmpaque * mult, descripcion: `1 ${nombreEmpaque} = ${kg} kg` },
-          { unidad: `Medio ${nombreEmpaque}`, costo: costoMedioSaco, precio_venta: costoMedioSaco * mult, descripcion: `½ ${nombreEmpaque} = ${kg / 2} kg` },
-          { unidad: "Kilo", costo: costoKilo, precio_venta: costoKilo * mult, descripcion: "Por kilogramo" },
-        ],
-      };
-    }
-    if (tipo === "multinivel") {
-      const maples = Number(item.nivel2_cantidad);
-      const huevos = Number(item.unidades_por_nivel2 ?? 1);
-      const kg = Number(item.kg_por_empaque ?? 0);
-      const costoNivel2 = costoEmpaque / maples;
-      const nombreNivel2 = item.nivel2_nombre || "Maple";
-      let costoUnitario, stockIngresado, unidadStock;
-      const presentaciones = [
-        { unidad: nombreEmpaque, costo: costoEmpaque, precio_venta: costoEmpaque * mult, descripcion: `1 ${nombreEmpaque} = ${maples} ${nombreNivel2}s` },
-        { unidad: nombreNivel2, costo: costoNivel2, precio_venta: costoNivel2 * mult, descripcion: `1 ${nombreNivel2} = ${huevos} unidades` },
-      ];
-      if (kg > 0) {
-        costoUnitario = costoEmpaque / kg;
-        stockIngresado = item.cantidad_empaque * kg;
-        unidadStock = "kilo";
-        presentaciones.push({ unidad: "Kilo", costo: costoUnitario, precio_venta: costoUnitario * mult, descripcion: "Por kilogramo" });
-      } else {
-        costoUnitario = costoEmpaque / (maples * huevos);
-        stockIngresado = item.cantidad_empaque * maples * huevos;
-        unidadStock = "unidad";
-      }
-      return {
-        costo_empaque: costoEmpaque,
-        costo_unitario: costoUnitario,
-        costo_nivel2: costoNivel2,
-        precio_venta_empaque: costoEmpaque * mult,
-        precio_venta_unitario: costoUnitario * mult,
-        precio_venta_nivel2: costoNivel2 * mult,
-        stock_ingresado: stockIngresado,
-        unidad_stock: unidadStock,
-        presentaciones,
-      };
-    }
-    throw new Error("tipo_presentacion no válido");
-  }
-}
-
-/**
- * Dado el resultado de previewCalculoCompra y la config del producto/categoría,
- * genera { unidad: precio_venta } para TODAS las unidades de venta configuradas
- * en la categoría — independientemente de la unidad usada al comprar.
- * Replica la lógica de _precios_por_presentacion_categoria del backend.
- */
-function _calcularPreciosPresentacionCategoria({ prod, det, preview }) {
-  const pct = (det.porcentaje_ganancia ?? 20) / 100;
-  const mult = 1 + pct;
-
-  const lista = leerDesdeStorage(STORAGE_KEY_CAT_CONFIG);
-  const cat = prod.categoria
-    ? (lista.find((c) => c.nombre === prod.categoria) ||
-       CATEGORIAS_CONFIG_DEFAULT.find((c) => c.nombre === prod.categoria))
-    : null;
-
-  const nuevosPrecios = {};
-
-  if (cat && cat.conversiones && cat.unidades_venta) {
-    const conversiones = cat.conversiones;
-    const tipo = det.tipo_presentacion || prod.tipo_flujo || "";
-
-    // Determinar costo base (por kilo o por unidad)
-    let costoBaseKilo = null;
-    let costoBaseUnidad = null;
-
-    if (tipo === "saco_kilo") {
-      costoBaseKilo = preview.costo_unitario;
-    } else if (tipo === "multinivel") {
-      if (preview.unidad_stock === "kilo") {
-        costoBaseKilo = preview.costo_unitario;
-      } else {
-        costoBaseUnidad = preview.costo_unitario;
-      }
-    } else {
-      // caja_unidad / saco_unidad
-      costoBaseUnidad = preview.costo_unitario;
-    }
-
-    for (const unidad of cat.unidades_venta) {
-      const conv = conversiones[unidad] || {};
-      const tipoConv = conv.tipo || "base_conteo";
-      let costo = null;
-
-      if (tipoConv === "base_peso" && costoBaseKilo != null) {
-        costo = costoBaseKilo;
-      } else if (tipoConv === "base_conteo" && costoBaseUnidad != null) {
-        costo = costoBaseUnidad;
-      } else if (tipoConv === "peso" && costoBaseKilo != null) {
-        costo = costoBaseKilo * (conv.kg || 1);
-      } else if (tipoConv === "conteo" && costoBaseUnidad != null) {
-        costo = costoBaseUnidad * (conv.unidades || 1);
-      } else if (tipoConv === "conteo" && costoBaseKilo != null && conv.kg) {
-        costo = costoBaseKilo * conv.kg;
-      } else if (tipoConv === "fraccion" && costoBaseKilo != null) {
-        const baseConv = conversiones[conv.base] || {};
-        costo = costoBaseKilo * (baseConv.kg || 1) * (conv.factor || 1);
-      } else if (tipoConv === "multinivel") {
-        const kgTotal = conv.kg_por_empaque || 0;
-        if (costoBaseKilo != null && kgTotal > 0) {
-          costo = costoBaseKilo * kgTotal;
-        } else if (costoBaseUnidad != null) {
-          const n2conv = conversiones[conv.nivel2] || {};
-          costo = costoBaseUnidad * (conv.nivel2_cantidad || 1) * (n2conv.unidades || 1);
-        }
-      }
-
-      if (costo != null) {
-        nuevosPrecios[unidad] = +((costo * mult).toFixed(2));
-      }
-    }
-  }
-
-  // Fallback: si no hay categoría configurada, guardar los valores base
-  if (Object.keys(nuevosPrecios).length === 0) {
-    const nombreEmpaque = det.nombre_empaque?.toLowerCase() || "empaque";
-    nuevosPrecios[nombreEmpaque] = preview.precio_venta_empaque;
-    nuevosPrecios[preview.unidad_stock] = preview.precio_venta_unitario;
-    if (preview.precio_venta_nivel2 && det.nivel2_nombre) {
-      nuevosPrecios[det.nivel2_nombre.toLowerCase()] = preview.precio_venta_nivel2;
-    }
-  }
-
-  return nuevosPrecios;
+  return await request("/compras/preview", {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
 }
 
 export async function getCompras() {
@@ -968,81 +803,16 @@ export async function eliminarCategoriaConfig(id) {
 }
 
 /**
- * Motor de cálculo de precios (server-side con fallback local de solo lectura).
+ * Motor de cálculo de precios. Única fuente de verdad: el backend
+ * (crud.calcular_precios_por_categoria, que a su vez delega en
+ * _precios_por_presentacion_categoria — el mismo motor que usan Compras
+ * e Inventario). No hay cálculo local: si falla la llamada, se propaga
+ * el error para que la UI lo muestre en vez de sugerir un precio que
+ * podría no coincidir con el que calcularía el backend.
  */
 export async function calcularPreciosPorCategoria({ categoria_nombre, unidad_compra, costo_compra, cantidad_comprada = 1, margen_ganancia = 20, factor_override = null }) {
-  try {
-    return await request("/categorias-config/calcular-precios", {
-      method: "POST",
-      body: JSON.stringify({ categoria_nombre, unidad_compra, costo_compra, cantidad_comprada, margen_ganancia, factor_override }),
-    });
-  } catch {
-    return calcularPreciosLocal({ categoria_nombre, unidad_compra, costo_compra, cantidad_comprada, margen_ganancia, factor_override });
-  }
-}
-
-function calcularPreciosLocal({ categoria_nombre, unidad_compra, costo_compra, cantidad_comprada = 1, margen_ganancia = 20, factor_override = null }) {
-  const lista = leerDesdeStorage(STORAGE_KEY_CAT_CONFIG);
-  const cat = lista.find((c) => c.nombre === categoria_nombre)
-    || CATEGORIAS_CONFIG_DEFAULT.find((c) => c.nombre === categoria_nombre);
-  if (!cat) throw new Error(`No hay configuración para la categoría '${categoria_nombre}'`);
-
-  const conversiones = { ...cat.conversiones, ...(factor_override || {}) };
-  const pct = margen_ganancia / 100;
-  const mult = 1 + pct;
-
-  const conv_compra = conversiones[unidad_compra] || {};
-  const tipo_compra = conv_compra.tipo || "base_conteo";
-  let costoBaseKilo = null;
-  let costoBaseUnidad = null;
-
-  if (tipo_compra === "peso") { costoBaseKilo = costo_compra / (conv_compra.kg || 1); }
-  else if (tipo_compra === "base_peso") { costoBaseKilo = costo_compra; }
-  else if (tipo_compra === "conteo") { costoBaseUnidad = costo_compra / (conv_compra.unidades || 1); }
-  else if (tipo_compra === "base_conteo") { costoBaseUnidad = costo_compra; }
-  else if (tipo_compra === "multinivel") {
-    const kgEmp = conv_compra.kg_por_empaque || 0;
-    if (kgEmp > 0) { costoBaseKilo = costo_compra / kgEmp; }
-    else {
-      const n2conv = conversiones[conv_compra.nivel2] || {};
-      const total = (conv_compra.nivel2_cantidad || 1) * (n2conv.unidades || 1);
-      costoBaseUnidad = costo_compra / total;
-    }
-  } else if (tipo_compra === "fraccion") {
-    const baseConv = conversiones[conv_compra.base] || {};
-    if (baseConv.tipo === "peso") { costoBaseKilo = costo_compra / ((baseConv.kg || 1) * (conv_compra.factor || 1)); }
-  }
-
-  const precios = (cat.unidades_venta || []).map((unidad) => {
-    const conv = conversiones[unidad] || {};
-    const tipo = conv.tipo || "base_conteo";
-    let precio = null;
-    if (tipo === "base_peso" && costoBaseKilo != null) precio = costoBaseKilo * mult;
-    else if (tipo === "base_conteo" && costoBaseUnidad != null) precio = costoBaseUnidad * mult;
-    else if (tipo === "peso" && costoBaseKilo != null) precio = costoBaseKilo * (conv.kg || 1) * mult;
-    else if (tipo === "conteo" && costoBaseUnidad != null) precio = costoBaseUnidad * (conv.unidades || 1) * mult;
-    else if (tipo === "fraccion" && costoBaseKilo != null) {
-      const baseConv = conversiones[conv.base] || {};
-      precio = costoBaseKilo * (baseConv.kg || 1) * (conv.factor || 1) * mult;
-    }
-    if (precio == null) return null;
-    return { unidad, costo: +(precio / mult).toFixed(4), precio_venta: +precio.toFixed(2), descripcion: conv.descripcion };
-  }).filter(Boolean);
-
-  let stockIngresado, unidadStock;
-  if (costoBaseKilo != null) {
-    if (tipo_compra === "peso") stockIngresado = cantidad_comprada * (conv_compra.kg || 1);
-    else if (tipo_compra === "multinivel") stockIngresado = cantidad_comprada * (conv_compra.kg_por_empaque || 1);
-    else stockIngresado = cantidad_comprada;
-    unidadStock = "kilo";
-  } else {
-    if (tipo_compra === "conteo") stockIngresado = cantidad_comprada * (conv_compra.unidades || 1);
-    else if (tipo_compra === "multinivel") {
-      const n2conv = conversiones[conv_compra.nivel2] || {};
-      stockIngresado = cantidad_comprada * (conv_compra.nivel2_cantidad || 1) * (n2conv.unidades || 1);
-    } else stockIngresado = cantidad_comprada;
-    unidadStock = "unidad";
-  }
-
-  return { categoria: categoria_nombre, unidad_compra, costo_compra, margen_ganancia, precios, stock_ingresado: +stockIngresado.toFixed(4), unidad_stock: unidadStock };
+  return await request("/categorias-config/calcular-precios", {
+    method: "POST",
+    body: JSON.stringify({ categoria_nombre, unidad_compra, costo_compra, cantidad_comprada, margen_ganancia, factor_override }),
+  });
 }

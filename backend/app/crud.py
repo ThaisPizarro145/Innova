@@ -141,6 +141,10 @@ def crear_movimiento_inventario(db: Session, movimiento: schemas.MovimientoInven
         if getattr(movimiento, "lote", None):
             producto.lote = movimiento.lote
 
+        # Mantener precios_presentacion sincronizado con el nuevo costo/precio,
+        # usando el mismo motor que Compras (ver _recalcular_precios_presentacion).
+        _recalcular_precios_presentacion(db, producto, producto.costo, producto.precio_venta)
+
     producto.updated_at = datetime.utcnow()
 
     db_movimiento = models.MovimientoInventario(
@@ -210,6 +214,10 @@ def actualizar_movimiento(db: Session, movimiento_id: int, datos: dict):
             producto.fecha_vencimiento = nueva_fecha_venc
         if nuevo_lote:
             producto.lote = nuevo_lote
+
+        # Mismo motor que Compras: evita que precios_presentacion quede
+        # desactualizado tras editar un movimiento manual de Inventario.
+        _recalcular_precios_presentacion(db, producto, producto.costo, producto.precio_venta)
 
     mov.cantidad = nueva_cantidad
     mov.tipo = nuevo_tipo
@@ -306,14 +314,21 @@ def actualizar_cliente(db: Session, cliente_id: int, cliente: schemas.ClienteUpd
 def eliminar_cliente(db: Session, cliente_id: int):
     db_cliente = get_cliente(db, cliente_id)
     if not db_cliente:
-        return None
+        return None, None
 
-    db_cliente.eliminado = True
-    db_cliente.activo = False
-    db_cliente.updated_at = datetime.utcnow()
+    tiene_ventas = db.query(models.Venta).filter(models.Venta.cliente_id == cliente_id).first() is not None
+    if tiene_ventas:
+        db_cliente.eliminado = True
+        db_cliente.activo = False
+        db_cliente.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_cliente)
+        return db_cliente, False
+
+    datos = schemas.ClienteResponse.from_orm(db_cliente).dict()
+    db.delete(db_cliente)
     db.commit()
-    db.refresh(db_cliente)
-    return db_cliente
+    return datos, True
 
 
 def listar_ventas_por_cliente(db: Session, cliente_id: int, skip: int = 0, limit: int = 100):
@@ -417,114 +432,164 @@ def registrar_venta(db: Session, venta_data: schemas.VentaCreate):
     """
     Registra una venta, calcula costos/precios, actualiza stock y genera
     movimientos de inventario tipo SALIDA.
+
+    Toda la operación se realiza en una única transacción: si algo falla
+    en cualquier punto, se revierte por completo (rollback) y no queda
+    stock descontado ni documentos a medio crear.
     """
     if not venta_data.detalles:
         raise ValueError("La venta debe contener al menos un producto")
 
-    subtotal = 0.0
-    detalles = []
-    for item in venta_data.detalles:
-        producto = get_producto(db, item.producto_id)
-        if not producto:
-            raise ValueError(f"Producto no encontrado: {item.producto_id}")
-        if item.cantidad <= 0:
-            raise ValueError("Cantidad debe ser mayor a cero")
+    try:
+        subtotal = 0.0
+        detalles = []
+        for item in venta_data.detalles:
+            producto = get_producto(db, item.producto_id)
+            if not producto:
+                raise ValueError(f"Producto no encontrado: {item.producto_id}")
+            if item.cantidad <= 0:
+                raise ValueError("Cantidad debe ser mayor a cero")
 
-        # Convertir cantidad de presentación → unidades base para validar stock
-        presentacion = getattr(item, "presentacion", None) or producto.unidad_base or "unidad"
-        cantidad_base = _cantidad_en_unidades_base(producto, presentacion, item.cantidad)
+            # Convertir cantidad de presentación → unidades base para validar stock
+            presentacion = getattr(item, "presentacion", None) or producto.unidad_base or "unidad"
+            cantidad_base = _cantidad_en_unidades_base(producto, presentacion, item.cantidad)
 
-        if cantidad_base > producto.stock_actual:
-            raise ValueError(
-                f"Stock insuficiente para '{producto.nombre}' "
-                f"({presentacion}). Disponible: {producto.stock_actual} {producto.unidad_base}."
+            if cantidad_base > producto.stock_actual:
+                raise ValueError(
+                    f"Stock insuficiente para '{producto.nombre}' "
+                    f"({presentacion}). Disponible: {producto.stock_actual} {producto.unidad_base}."
+                )
+
+            subtotal_item = item.precio_unitario * item.cantidad
+            subtotal += subtotal_item - item.descuento
+            detalles.append({
+                "producto": producto,
+                "item": item,
+                "subtotal_item": subtotal_item,
+                "cantidad_base": cantidad_base,
+                "presentacion": presentacion,
+            })
+
+        igv = round(subtotal * 0.18, 2) if getattr(venta_data, "incluye_igv", True) else 0.0
+        total = round(subtotal - venta_data.descuento + igv, 2)
+
+        tipo_doc = getattr(venta_data, "tipo_documento", "NOTA_VENTA") or "NOTA_VENTA"
+
+        # Resolver el cliente vinculado a la venta. Si viene un cliente_id, es
+        # la fuente de verdad para el DNI/RUC. Si no viene (por ejemplo, se usó
+        # el buscador SUNAT/RENIEC sin haber registrado antes al cliente), se
+        # busca por DNI/RUC y, si tampoco existe, se registra automáticamente
+        # para que la venta quede vinculada por cliente_id en vez de perder el
+        # dato de documento del cliente.
+        cliente_id = venta_data.cliente_id
+        cliente_nombre = getattr(venta_data, "cliente_nombre", None)
+        cliente_dni = None
+        cliente_ruc = None
+
+        if cliente_id:
+            cliente_db = get_cliente(db, cliente_id)
+            if not cliente_db:
+                raise ValueError("Cliente no encontrado")
+            cliente_dni = cliente_db.dni
+            cliente_ruc = cliente_db.ruc
+        else:
+            dni_in = (getattr(venta_data, "cliente_dni", None) or "").strip() or None
+            ruc_in = (getattr(venta_data, "cliente_ruc", None) or "").strip() or None
+            if dni_in or ruc_in:
+                cliente_db = get_cliente_por_dni(db, dni_in) if dni_in else None
+                if not cliente_db and ruc_in:
+                    cliente_db = get_cliente_por_ruc(db, ruc_in)
+                if not cliente_db:
+                    cliente_db = models.Cliente(
+                        dni=dni_in,
+                        ruc=ruc_in,
+                        nombre=None if ruc_in else cliente_nombre,
+                        razon_social=cliente_nombre if ruc_in else None,
+                    )
+                    db.add(cliente_db)
+                    db.flush()
+                cliente_id = cliente_db.id
+                cliente_dni = cliente_db.dni
+                cliente_ruc = cliente_db.ruc
+
+        if tipo_doc == "FACTURA" and (not cliente_ruc or len(cliente_ruc) != 11):
+            raise ValueError("Factura requiere RUC del cliente (11 dígitos)")
+
+        # Obtener serie y número correlativo (usa with_for_update + flush, no commit)
+        serie = SERIES_DOC.get(tipo_doc, "NV01")
+        numero = _siguiente_numero_documento(db, serie)
+
+        venta = models.Venta(
+            cliente_id=cliente_id,
+            cliente_nombre=cliente_nombre,
+            cliente_dni=cliente_dni,
+            cliente_ruc=cliente_ruc,
+            subtotal=round(subtotal, 2),
+            descuento=venta_data.descuento,
+            igv=igv,
+            total=total,
+            forma_pago=venta_data.forma_pago,
+            estado="COMPLETADA",
+            venta_rapida=venta_data.venta_rapida,
+            tipo_documento=tipo_doc,
+            serie=serie,
+            numero_documento=numero,
+        )
+        db.add(venta)
+        db.flush()  # asigna venta.id sin confirmar la transacción
+
+        for detalle_data in detalles:
+            producto = detalle_data["producto"]
+            item = detalle_data["item"]
+            subtotal_item = detalle_data["subtotal_item"]
+            cantidad_base = detalle_data["cantidad_base"]
+            presentacion = detalle_data["presentacion"]
+            total_item = round(subtotal_item - item.descuento, 2)
+
+            detalle = models.VentaDetalle(
+                venta_id=venta.id,
+                producto_id=producto.id,
+                cantidad=item.cantidad,
+                precio_unitario=item.precio_unitario,
+                descuento=item.descuento,
+                subtotal=subtotal_item,
+                total=total_item,
+                lote=producto.lote,
+                fecha_vencimiento=producto.fecha_vencimiento,
+                presentacion=presentacion,
+                nombre_producto=producto.nombre,
             )
+            db.add(detalle)
 
-        subtotal_item = item.precio_unitario * item.cantidad
-        subtotal += subtotal_item - item.descuento
-        detalles.append({
-            "producto": producto,
-            "item": item,
-            "subtotal_item": subtotal_item,
-            "cantidad_base": cantidad_base,
-            "presentacion": presentacion,
-        })
+            # Descontar en unidades base (no en presentación vendida)
+            producto.stock_actual = round(producto.stock_actual - cantidad_base, 6)
+            producto.updated_at = datetime.utcnow()
 
-    igv = round(subtotal * 0.18, 2) if getattr(venta_data, "incluye_igv", True) else 0.0
-    total = round(subtotal - venta_data.descuento + igv, 2)
+            movimiento = models.MovimientoInventario(
+                producto_id=producto.id,
+                tipo="SALIDA",
+                cantidad=cantidad_base,
+                costo_unitario=producto.costo,
+                precio_unitario=item.precio_unitario,
+                nota=f"Venta #{venta.id} — {tipo_doc} — {presentacion}",
+                stock_despues=producto.stock_actual,
+            )
+            db.add(movimiento)
 
-    # Obtener serie y número correlativo
-    tipo_doc = getattr(venta_data, "tipo_documento", "NOTA_VENTA") or "NOTA_VENTA"
-    serie = SERIES_DOC.get(tipo_doc, "NV01")
-    numero = _siguiente_numero_documento(db, serie)
-
-    venta = models.Venta(
-        cliente_id=venta_data.cliente_id,
-        cliente_nombre=getattr(venta_data, "cliente_nombre", None),
-        subtotal=round(subtotal, 2),
-        descuento=venta_data.descuento,
-        igv=igv,
-        total=total,
-        forma_pago=venta_data.forma_pago,
-        estado="COMPLETADA",
-        venta_rapida=venta_data.venta_rapida,
-        tipo_documento=tipo_doc,
-        serie=serie,
-        numero_documento=numero,
-    )
-    db.add(venta)
-    db.commit()
-    db.refresh(venta)
-
-    for detalle_data in detalles:
-        producto = detalle_data["producto"]
-        item = detalle_data["item"]
-        subtotal_item = detalle_data["subtotal_item"]
-        cantidad_base = detalle_data["cantidad_base"]
-        presentacion = detalle_data["presentacion"]
-        total_item = round(subtotal_item - item.descuento, 2)
-
-        detalle = models.VentaDetalle(
+        caja = models.Caja(
+            descripcion=f"Ingreso por venta #{venta.id} ({serie}-{numero})",
+            ingreso=venta.total,
+            egreso=0.0,
             venta_id=venta.id,
-            producto_id=producto.id,
-            cantidad=item.cantidad,
-            precio_unitario=item.precio_unitario,
-            descuento=item.descuento,
-            subtotal=subtotal_item,
-            total=total_item,
-            lote=producto.lote,
-            fecha_vencimiento=producto.fecha_vencimiento,
-            presentacion=presentacion,
-            nombre_producto=producto.nombre,
         )
-        db.add(detalle)
+        db.add(caja)
 
-        # Descontar en unidades base (no en presentación vendida)
-        producto.stock_actual = round(producto.stock_actual - cantidad_base, 6)
-        producto.updated_at = datetime.utcnow()
-
-        movimiento = models.MovimientoInventario(
-            producto_id=producto.id,
-            tipo="SALIDA",
-            cantidad=cantidad_base,
-            costo_unitario=producto.costo,
-            precio_unitario=item.precio_unitario,
-            nota=f"Venta #{venta.id} — {tipo_doc} — {presentacion}",
-            stock_despues=producto.stock_actual,
-        )
-        db.add(movimiento)
-
-    caja = models.Caja(
-        descripcion=f"Ingreso por venta #{venta.id} ({serie}-{numero})",
-        ingreso=venta.total,
-        egreso=0.0,
-        venta_id=venta.id,
-    )
-    db.add(caja)
-
-    db.commit()
-    db.refresh(venta)
-    return venta
+        db.commit()
+        db.refresh(venta)
+        return venta
+    except Exception:
+        db.rollback()
+        raise
 
 
 def listar_ventas(db: Session, skip: int = 0, limit: int = 500, query: str = None, fecha_desde: str = None, fecha_hasta: str = None):
@@ -557,35 +622,44 @@ def get_venta(db: Session, venta_id: int):
 
 
 def anular_venta(db: Session, venta_id: int):
+    """
+    Anula una venta y revierte el stock de sus detalles en una única
+    transacción (un solo commit). Si algo falla, se hace rollback completo
+    para que la venta no quede marcada como ANULADA sin haber devuelto el stock.
+    """
     venta = get_venta(db, venta_id)
     if not venta:
         return None
     if venta.estado == "ANULADA":
         return venta
 
-    venta.estado = "ANULADA"
-    venta.updated_at = datetime.utcnow()
-    db.commit()
+    try:
+        venta.estado = "ANULADA"
+        venta.updated_at = datetime.utcnow()
 
-    for detalle in venta.detalles:
-        producto = get_producto(db, detalle.producto_id)
-        if producto:
-            producto.stock_actual += detalle.cantidad
-            producto.updated_at = datetime.utcnow()
+        for detalle in venta.detalles:
+            producto = get_producto(db, detalle.producto_id)
+            if producto:
+                producto.stock_actual += detalle.cantidad
+                producto.updated_at = datetime.utcnow()
 
-            movimiento = models.MovimientoInventario(
-                producto_id=producto.id,
-                tipo="DEVOLUCION",
-                cantidad=detalle.cantidad,
-                costo_unitario=producto.costo,
-                precio_unitario=detalle.precio_unitario,
-                nota=f"Anulación venta #{venta.id}",
-                stock_despues=producto.stock_actual,
-            )
-            db.add(movimiento)
-    db.commit()
-    db.refresh(venta)
-    return venta
+                movimiento = models.MovimientoInventario(
+                    producto_id=producto.id,
+                    tipo="DEVOLUCION",
+                    cantidad=detalle.cantidad,
+                    costo_unitario=producto.costo,
+                    precio_unitario=detalle.precio_unitario,
+                    nota=f"Anulación venta #{venta.id}",
+                    stock_despues=producto.stock_actual,
+                )
+                db.add(movimiento)
+
+        db.commit()
+        db.refresh(venta)
+        return venta
+    except Exception:
+        db.rollback()
+        raise
 
 
 def eliminar_venta(db: Session, venta_id: int):
@@ -593,25 +667,29 @@ def eliminar_venta(db: Session, venta_id: int):
     if not venta:
         return None
 
-    # Revertir stock de cada detalle
-    for detalle in venta.detalles:
-        producto = get_producto(db, detalle.producto_id)
-        if producto and venta.estado != "ANULADA":
-            producto.stock_actual += detalle.cantidad
-            producto.updated_at = datetime.utcnow()
-            db.add(models.MovimientoInventario(
-                producto_id=producto.id,
-                tipo="DEVOLUCION",
-                cantidad=detalle.cantidad,
-                costo_unitario=producto.costo,
-                precio_unitario=detalle.precio_unitario,
-                nota=f"Eliminación venta #{venta.id}",
-                stock_despues=producto.stock_actual,
-            ))
+    try:
+        # Revertir stock de cada detalle
+        for detalle in venta.detalles:
+            producto = get_producto(db, detalle.producto_id)
+            if producto and venta.estado != "ANULADA":
+                producto.stock_actual += detalle.cantidad
+                producto.updated_at = datetime.utcnow()
+                db.add(models.MovimientoInventario(
+                    producto_id=producto.id,
+                    tipo="DEVOLUCION",
+                    cantidad=detalle.cantidad,
+                    costo_unitario=producto.costo,
+                    precio_unitario=detalle.precio_unitario,
+                    nota=f"Eliminación venta #{venta.id}",
+                    stock_despues=producto.stock_actual,
+                ))
 
-    db.delete(venta)
-    db.commit()
-    return {"id": venta_id}
+        db.delete(venta)
+        db.commit()
+        return {"id": venta_id}
+    except Exception:
+        db.rollback()
+        raise
 
 
 def reporte_ventas_diarias(db: Session):
@@ -1042,6 +1120,50 @@ def _precios_por_presentacion_categoria(
     return nuevos_precios
 
 
+def _recalcular_precios_presentacion(db: Session, producto: "models.Producto", costo_unitario: float, precio_unitario: float) -> None:
+    """
+    Recalcula producto.precios_presentacion usando el MISMO motor de
+    conversiones por categoría (_precios_por_presentacion_categoria) que usa
+    Compras al registrar una compra.
+
+    Se llama también desde Inventario (entradas/ajustes manuales) para que
+    un cambio de costo/precio unitario fuera del flujo de Compras no deje
+    los precios por presentación (caja, saco, maple, etc.) desactualizados
+    respecto al nuevo precio unitario — la causa de la desunificación
+    detectada entre ambos módulos.
+    """
+    if not costo_unitario or costo_unitario <= 0 or not producto.categoria:
+        return
+
+    cat = get_categoria_config_por_nombre(db, producto.categoria)
+    if not cat or not cat.conversiones or not cat.unidades_venta:
+        return  # sin configuración de categoría no hay forma confiable de recalcular por presentación
+
+    precio_unitario = precio_unitario or costo_unitario
+    pct = max((precio_unitario / costo_unitario) - 1, 0)
+
+    calculo = {
+        "costo_unitario": costo_unitario,
+        "unidad_stock": producto.unidad_base or "unidad",
+        # Fallback seguro si el motor no encuentra conversión para ninguna
+        # unidad de venta configurada (evita KeyError en _precios_por_presentacion_categoria)
+        "precio_venta_unitario": round(precio_unitario, 2),
+        "precio_venta_empaque": round(precio_unitario, 2),
+    }
+
+    nuevos_precios = _precios_por_presentacion_categoria(
+        calculo=calculo,
+        tipo_presentacion=producto.tipo_flujo or "caja_unidad",
+        producto=producto,
+        cat=cat,
+        pct=pct,
+        nombre_empaque=producto.nombre_empaque_mayor or "Empaque",
+        nivel2_nombre=producto.nombre_nivel2,
+    )
+    if nuevos_precios:
+        producto.precios_presentacion = nuevos_precios
+
+
 def calcular_preview_compra(item: "schemas.CompraDetalleCreate", db: "Session | None" = None) -> dict:
     """
     Endpoint de preview: calcula sin persistir.
@@ -1419,62 +1541,46 @@ def calcular_precios_por_categoria(
             kg_base = float(base_conv.get("kg", 1))
             costo_base_kilo = costo_compra / (kg_base * factor)
 
-    # Paso 2: calcular precio para cada unidad de venta
-    precios: list = []
-    unidades_venta = list(cat.unidades_venta or [])
+    # Paso 2: calcular precio para cada unidad de venta.
+    # ÚNICA fuente de verdad: se delega en _precios_por_presentacion_categoria,
+    # el mismo motor que usan Compras (registrar_compra) e Inventario
+    # (_recalcular_precios_presentacion). Ya no existe una copia paralela
+    # de las reglas de conversión aquí.
+    costo_base = costo_base_kilo if costo_base_kilo is not None else costo_base_unidad
+    if costo_base is None:
+        raise ValueError(f"No se pudo determinar el costo base para la unidad de compra '{unidad_compra}'")
 
-    for unidad in unidades_venta:
-        conv = conversiones.get(unidad, {})
-        tipo = conv.get("tipo", "base_conteo")
-        precio = None
+    calculo = {
+        "costo_unitario": costo_base,
+        "unidad_stock": "kilo" if costo_base_kilo is not None else "unidad",
+        # Fallback seguro si ninguna unidad de venta calza con las conversiones
+        # (ver _precios_por_presentacion_categoria) — evita un KeyError.
+        "precio_venta_unitario": round(costo_base * mult, 2),
+        "precio_venta_empaque": round(costo_base * mult, 2),
+    }
+    # "saco_kilo"/"caja_unidad" solo indican al motor si el costo base está
+    # en kg o en unidades — no se usa ningún dato real de Compras aquí.
+    tipo_bridge = "saco_kilo" if costo_base_kilo is not None else "caja_unidad"
 
-        if tipo == "base_peso" and costo_base_kilo is not None:
-            precio = costo_base_kilo * mult
+    precios_dict = _precios_por_presentacion_categoria(
+        calculo=calculo,
+        tipo_presentacion=tipo_bridge,
+        producto=None,
+        cat=cat,
+        pct=pct,
+        nombre_empaque=unidad_compra,
+        nivel2_nombre=None,
+    )
 
-        elif tipo == "base_conteo" and costo_base_unidad is not None:
-            precio = costo_base_unidad * mult
-
-        elif tipo == "peso" and costo_base_kilo is not None:
-            kg = float(conv.get("kg", 1))
-            precio = costo_base_kilo * kg * mult
-
-        elif tipo == "conteo" and costo_base_unidad is not None:
-            n = float(conv.get("unidades", 1))
-            precio = costo_base_unidad * n * mult
-        elif tipo == "conteo" and costo_base_kilo is not None:
-            # maple con kg: precio = costo_kilo * kg_por_maple * mult
-            kg_u = float(conv.get("kg", 0))
-            if kg_u > 0:
-                precio = costo_base_kilo * kg_u * mult
-
-        elif tipo == "fraccion" and costo_base_kilo is not None:
-            base = conv.get("base", "saco")
-            factor = float(conv.get("factor", 1))
-            base_conv = conversiones.get(base, {})
-            kg_base = float(base_conv.get("kg", 1))
-            precio = costo_base_kilo * kg_base * factor * mult
-
-        elif tipo == "multinivel":
-            # precio del empaque completo
-            if costo_base_kilo is not None:
-                kg_total = float(conv.get("kg_por_empaque", 0))
-                if kg_total > 0:
-                    precio = costo_base_kilo * kg_total * mult
-            elif costo_base_unidad is not None:
-                nivel2_cant = float(conv.get("nivel2_cantidad", 1))
-                nivel2_nombre = conv.get("nivel2", "")
-                nivel2_conv = conversiones.get(nivel2_nombre, {})
-                unidades_por_nivel2 = float(nivel2_conv.get("unidades", 1))
-                total_unidades = nivel2_cant * unidades_por_nivel2
-                precio = costo_base_unidad * total_unidades * mult
-
-        if precio is not None:
-            precios.append(schemas.PrecioCalculado(
-                unidad=unidad,
-                costo=round(precio / mult, 4),
-                precio_venta=round(precio, 2),
-                descripcion=conv.get("descripcion"),
-            ))
+    precios = [
+        schemas.PrecioCalculado(
+            unidad=unidad,
+            costo=round(precio_venta / mult, 4),
+            precio_venta=precio_venta,
+            descripcion=conversiones.get(unidad, {}).get("descripcion"),
+        )
+        for unidad, precio_venta in precios_dict.items()
+    ]
 
     # Stock ingresado
     if costo_base_kilo is not None:

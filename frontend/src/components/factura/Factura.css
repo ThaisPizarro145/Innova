@@ -1,0 +1,271 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Factura.css — Comprobante electrónico A4 (Boleta / Factura)
+   Paleta: negro, grises suaves, azul corporativo discreto. Sin frameworks.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --f-negro:       #1a1d23;
+  --f-gris-900:    #333844;
+  --f-gris-700:    #5c6472;
+  --f-gris-500:    #8b93a1;
+  --f-gris-300:    #d8dce2;
+  --f-gris-200:    #e7e9ed;
+  --f-gris-100:    #f4f5f7;
+  --f-blanco:      #ffffff;
+  --f-azul:        #2c4a75;   /* azul corporativo, muy discreto */
+  --f-azul-suave:  #f2f5f9;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────── */
+* , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Página de impresión ──────────────────────────────────────────── */
+@page {
+  size: A4;
+  margin: 12mm 14mm;
+}
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 10.3px;
+  color: var(--f-negro);
+  background: #eceef1;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.factura {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: var(--f-blanco);
+  padding: 12mm 14mm;
+}
+
+@media print {
+  body { background: var(--f-blanco); }
+  .factura { width: auto; min-height: 0; margin: 0; padding: 0; }
+}
+
+/* ═══ ENCABEZADO ══════════════════════════════════════════════════════ */
+.f-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--f-negro);
+}
+
+.f-empresa-nombre {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--f-negro);
+  line-height: 1.3;
+}
+
+.f-empresa-linea {
+  font-size: 10px;
+  color: var(--f-gris-700);
+  line-height: 1.55;
+}
+
+.f-doc-box {
+  flex: none;
+  width: 205px;
+  border: 1.5px solid var(--f-azul);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: center;
+  background: var(--f-azul-suave);
+}
+
+.f-doc-tipo {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--f-azul);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.f-doc-ruc {
+  font-size: 9.5px;
+  color: var(--f-gris-700);
+  margin-bottom: 4px;
+}
+
+.f-doc-numero {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--f-negro);
+}
+
+/* ═══ DATOS DEL CLIENTE ═══════════════════════════════════════════════ */
+.f-cliente {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 28px;
+  border: 1px solid var(--f-gris-300);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
+}
+
+.f-campo {
+  display: flex;
+  padding: 3px 0;
+  font-size: 10px;
+  border-bottom: 1px dotted var(--f-gris-200);
+}
+.f-campo:last-child { border-bottom: none; }
+
+.f-etq {
+  flex: none;
+  width: 118px;
+  color: var(--f-gris-700);
+  font-weight: 600;
+}
+
+.f-val {
+  color: var(--f-negro);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* ═══ TABLA DE PRODUCTOS ══════════════════════════════════════════════ */
+.f-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 18px;
+  font-size: 9.7px;
+}
+
+.f-tabla thead { display: table-header-group; }
+
+.f-tabla th {
+  background: var(--f-negro);
+  color: var(--f-blanco);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 7px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.f-tabla td {
+  padding: 6px;
+  border-bottom: 1px solid var(--f-gris-200);
+  vertical-align: top;
+}
+
+.f-tabla tbody tr { page-break-inside: avoid; }
+.f-tabla tbody tr:nth-child(even) { background: var(--f-gris-100); }
+
+.col-codigo { width: 9%; }
+.col-cant   { width: 7%;  text-align: right; }
+.col-und    { width: 8%; }
+.col-desc   { width: 39%; }
+.col-venc   { width: 10%; }
+.col-pu     { width: 12%; text-align: right; }
+.col-imp    { width: 15%; text-align: right; }
+
+.f-tabla td.col-cant,
+.f-tabla td.col-pu,
+.f-tabla td.col-imp {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.f-tabla td.col-desc { font-weight: 500; }
+.f-tabla td.col-venc { color: var(--f-gris-700); white-space: nowrap; }
+
+/* ═══ CIERRE: letras + totales ════════════════════════════════════════ */
+.f-cierre {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 4px;
+  padding-top: 10px;
+  page-break-inside: avoid;
+}
+
+.f-letras {
+  flex: 1 1 auto;
+  font-size: 9.8px;
+  color: var(--f-gris-900);
+  padding-top: 10px;
+  border-top: 1px solid var(--f-gris-300);
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.f-totales {
+  flex: none;
+  width: 250px;
+}
+
+.f-tot-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 4px;
+  font-size: 10.3px;
+  border-bottom: 1px solid var(--f-gris-200);
+  color: var(--f-gris-900);
+}
+
+.f-tot-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.f-tot-final {
+  border-top: 2px solid var(--f-negro);
+  border-bottom: 2px solid var(--f-negro);
+  margin-top: 2px;
+  padding: 9px 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--f-negro);
+}
+
+/* ═══ OBSERVACIONES ═══════════════════════════════════════════════════ */
+.f-obs {
+  margin-top: 16px;
+  padding: 10px 14px;
+  font-size: 9.7px;
+  color: var(--f-gris-900);
+  background: var(--f-gris-100);
+  border-left: 3px solid var(--f-azul);
+  border-radius: 0 6px 6px 0;
+  page-break-inside: avoid;
+}
+.f-obs strong { color: var(--f-negro); }
+
+/* ═══ PIE ══════════════════════════════════════════════════════════════ */
+.f-footer {
+  margin-top: 40px;
+  padding-top: 22px;
+  border-top: 1px solid var(--f-gris-200);
+  text-align: right;
+  page-break-inside: avoid;
+}
+
+.f-gracias {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--f-negro);
+  margin-bottom: 3px;
+}
+
+.f-legal {
+  font-size: 8.3px;
+  color: var(--f-gris-500);
+  line-height: 1.55;
+}

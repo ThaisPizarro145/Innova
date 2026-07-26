@@ -15,6 +15,7 @@ import {
 } from "../services/api";
 import { useCategorias } from "../hooks/useCategorias";
 import { stockAmigable } from "../utils/stock";
+import { exportarExcel } from "../utils/exportExcel";
 import "../styles/Compras.css";
 
 // ─── Etiquetas amigables ───────────────────────────────────────────────────────
@@ -314,15 +315,6 @@ function Medicamentos() {
     setMostrarFormulario(true);
   };
 
-  const eliminarProducto = async (id) => {
-    if (!window.confirm("¿Eliminar este producto?")) return;
-    try {
-      await eliminarProducto(id);
-      cargarProductos(busqueda);
-      setMensaje("Producto eliminado.");
-    } catch(e) { setMensaje(e.message); }
-  };
-
   const handleGuardarProducto = async (payload) => {
     if (editandoId !== null) {
       await actualizarProducto(editandoId, payload);
@@ -342,17 +334,13 @@ function Medicamentos() {
     cargarProductos(busqueda);
   };
 
-  const exportarExcel = () => {
+  const exportarProductosExcel = () => {
     const enc = ["Código","Nombre","Categoría","Proveedor","Stock","Unidad","Costo","Precio venta"];
     const filas = productosFiltrados.map(p=>[
       p.codigo, p.nombre, p.categoria||"", p.proveedor||p.laboratorio||"",
-      p.stock_actual??0, p.unidad_base||"", Number(p.costo||0).toFixed(2), Number(p.precio_venta||0).toFixed(2),
+      p.stock_actual??0, p.unidad_base||"", Number(p.costo||0), Number(p.precio_venta||0),
     ]);
-    const csv = [enc,...filas].map(r=>r.join(",")).join("\n");
-    const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href=url; a.download="productos.csv"; a.click();
-    URL.revokeObjectURL(url);
+    exportarExcel("productos", enc, filas, "Productos");
   };
 
   const productosFiltrados = productos.filter(p => {
@@ -399,7 +387,7 @@ function Medicamentos() {
           <p style={{ margin:"4px 0 0", fontSize:"0.82rem", color:"#64748b" }}>Catálogo de productos · Equivalencias · Precios por presentación</p>
         </div>
         <div style={{ display:"flex", gap:"8px", flexWrap:"wrap" }}>
-          <button type="button" className="btn-export" onClick={exportarExcel}>⬇ Excel</button>
+          <button type="button" className="btn-export" onClick={exportarProductosExcel}>⬇ Excel</button>
           <button type="button" onClick={() => setVistaTabla(v=>!v)}
             style={{ background:"#f1f5f9", border:"1px solid #e2e8f0", borderRadius:"8px", padding:"8px 14px", cursor:"pointer", fontSize:"0.85rem" }}>
             {vistaTabla ? "⊞ Tarjetas" : "☰ Tabla"}
