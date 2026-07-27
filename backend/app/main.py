@@ -68,6 +68,9 @@ def on_startup():
     db = SessionLocal()
     try:
         crud.sembrar_categorias_default(db)
+    except Exception:
+        # El seed de categorías no debe tumbar el arranque del servidor.
+        logger.error("Error al sembrar categorías predeterminadas:\n%s", traceback.format_exc())
     finally:
         db.close()
 

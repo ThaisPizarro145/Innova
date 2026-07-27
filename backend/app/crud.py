@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
+from sqlalchemy.exc import IntegrityError
 from app import models, schemas
 
 
@@ -1488,7 +1489,14 @@ def eliminar_categoria_config(db: Session, categoria_id: int):
 
 
 def sembrar_categorias_default(db: Session):
-    """Inserta las categorías predeterminadas si no existen todavía (tanto en CategoriaConfig como en Categoria simple)."""
+    """Inserta las categorías predeterminadas si no existen todavía (tanto en CategoriaConfig como en Categoria simple).
+
+    Se hace commit e intercepta IntegrityError por cada categoría (en vez de un
+    único commit al final) porque en Render el arranque puede correr más de una
+    vez o en más de un worker: si dos procesos comprueban "no existe" casi a la
+    vez, el segundo INSERT choca con el unique constraint del nombre. Sin este
+    try/except esa IntegrityError tumbaba el despliegue del servidor.
+    """
     for cat_data in CATEGORIAS_DEFAULT:
         # Sembrar CategoriaConfig (con unidades y conversiones)
         # El nombre es único a nivel de BD sin importar "eliminado", así que
@@ -1498,6 +1506,10 @@ def sembrar_categorias_default(db: Session):
             campos_config = {k: v for k, v in cat_data.items()}
             obj = models.CategoriaConfig(**campos_config)
             db.add(obj)
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
         # Sembrar Categoria simple (para el selector de productos y la página Categorías)
         if not db.query(models.Categoria).filter(models.Categoria.nombre == cat_data["nombre"]).first():
             simple = models.Categoria(
@@ -1507,7 +1519,10 @@ def sembrar_categorias_default(db: Session):
                 color=cat_data.get("color", "#64748b"),
             )
             db.add(simple)
-    db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
 
 
 # ── Motor de cálculo de precios por categoría ─────────────────────────────────
