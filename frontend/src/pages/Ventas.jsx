@@ -164,7 +164,7 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
           <strong>{producto.nombre}</strong>
           <span style={{ color: "#64748b", fontSize: "0.85rem", marginLeft: "8px" }}>{producto.codigo}</span>
         </div>
-        <div className="formulario-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <div className="formulario-grid">
           <div className="campo"><label>Presentación</label>
             <select value={presentacion} onChange={(e) => handlePresentacion(e.target.value)}>
               {presentaciones.map((p) => (
@@ -354,28 +354,30 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onDescar
             <span>Cliente: {comprobante.clienteNombre}</span>
             {comprobante.clienteDni && <span> | Doc: {comprobante.clienteDni}</span>}
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                <th style={{ textAlign: "left", padding: "4px" }}>Descripción</th>
-                <th style={{ padding: "4px" }}>Cant.</th>
-                <th style={{ padding: "4px" }}>Unid.</th>
-                <th style={{ padding: "4px", textAlign: "right" }}>P.Unit.</th>
-                <th style={{ padding: "4px", textAlign: "right" }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comprobante.items.map((item, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "4px" }}>{item.nombre}</td>
-                  <td style={{ padding: "4px", textAlign: "center" }}>{item.cantidad}</td>
-                  <td style={{ padding: "4px", textAlign: "center" }}>{item.presentacion}</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{fmt(item.precio)}</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{fmt(item.total)}</td>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                  <th style={{ textAlign: "left", padding: "4px" }}>Descripción</th>
+                  <th style={{ padding: "4px" }}>Cant.</th>
+                  <th style={{ padding: "4px" }}>Unid.</th>
+                  <th style={{ padding: "4px", textAlign: "right" }}>P.Unit.</th>
+                  <th style={{ padding: "4px", textAlign: "right" }}>Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {comprobante.items.map((item, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "4px" }}>{item.nombre}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{item.cantidad}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{item.presentacion}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{fmt(item.precio)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{fmt(item.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div style={{ marginTop: "8px", fontSize: "0.85rem", display: "flex", flexDirection: "column", gap: "3px", alignItems: "flex-end" }}>
             <div style={{ display: "flex", gap: "32px" }}><span>Subtotal:</span><span>{fmt(comprobante.subtotal)}</span></div>
             <div style={{ display: "flex", gap: "32px" }}><span>IGV (18%):</span><span>{fmt(comprobante.igv)}</span></div>

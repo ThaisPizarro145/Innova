@@ -266,7 +266,7 @@ export default function Caja() {
               <h2>➕ Nuevo movimiento de caja</h2>
               <button type="button" className="btn-cerrar" onClick={() => setMostrarForm(false)}>✕</button>
             </div>
-            <div className="formulario-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div className="formulario-grid">
               {/* Tipo: Ingreso / Egreso */}
               <div className="campo campo-full">
                 <label>Tipo</label>

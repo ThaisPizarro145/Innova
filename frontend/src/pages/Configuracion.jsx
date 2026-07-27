@@ -50,7 +50,7 @@ export default function Configuracion() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        <div className="formulario-grid">
           {campoEmpresa("nombre", "Nombre / Razón social *", "Ej: CORPORACIÓN SOMOS ALIADOS")}
           {campoEmpresa("ruc", "RUC", "Ej: 10739759931")}
           {campoEmpresa("direccion", "Dirección", "Ej: Av. La Cultura Psj. C - Puesto 59")}
