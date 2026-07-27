@@ -39,12 +39,35 @@ function formatSol(v) {
   return `S/ ${Number(v ?? 0).toFixed(2)}`;
 }
 
+// Máscara de escritura dd/mm/aaaa: inserta las barras automáticamente
+// a medida que el usuario digita solo números.
+function formatFechaEscritura(raw) {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const dd = digits.slice(0, 2);
+  const mm = digits.slice(2, 4);
+  const aaaa = digits.slice(4, 8);
+  let out = dd;
+  if (digits.length >= 3) out += "/" + mm;
+  if (digits.length >= 5) out += "/" + aaaa;
+  return out;
+}
+
+function fechaDDMMAAAAaISO(v) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || "");
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function fechaISOaDDMMAAAA(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  if (!m) return "";
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 const ESTADO_INICIAL = {
-  codigo: "",
   nombre: "",
   categoria: "",
   proveedor: "",
-  lote: "",
   fecha_vencimiento: "",
   stock_actual: "",
   stock_minimo: "",
@@ -79,12 +102,10 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
         || "";
       setForm({
         ...ESTADO_INICIAL,
-        codigo: productoEditando.codigo || "",
         nombre: productoEditando.nombre || "",
         categoria: productoEditando.categoria || "",
         proveedor: productoEditando.proveedor || productoEditando.laboratorio || "",
-        lote: productoEditando.lote || "",
-        fecha_vencimiento: productoEditando.fecha_vencimiento || "",
+        fecha_vencimiento: fechaISOaDDMMAAAA(productoEditando.fecha_vencimiento),
         stock_actual: productoEditando.stock_actual ?? "",
         stock_minimo: productoEditando.stock_minimo ?? "",
         margen_ganancia: productoEditando.margen_ganancia_default ?? 20,
@@ -198,8 +219,12 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
   };
 
   const handleGuardar = async () => {
-    if (!form.codigo?.trim() || !form.nombre?.trim()) {
-      setMensaje("Código y nombre son obligatorios.");
+    if (!form.nombre?.trim()) {
+      setMensaje("El nombre es obligatorio.");
+      return;
+    }
+    if (form.fecha_vencimiento?.trim() && !fechaDDMMAAAAaISO(form.fecha_vencimiento)) {
+      setMensaje("La fecha de vencimiento debe tener el formato dd/mm/aaaa.");
       return;
     }
     setGuardando(true);
@@ -241,13 +266,11 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
       }
 
       const payload = {
-        codigo: form.codigo.trim(),
         nombre: form.nombre.trim(),
         categoria: form.categoria || null,
         proveedor: form.proveedor?.trim() || null,
         laboratorio: form.proveedor?.trim() || null,
-        lote: form.lote?.trim() || null,
-        fecha_vencimiento: form.fecha_vencimiento || null,
+        fecha_vencimiento: fechaDDMMAAAAaISO(form.fecha_vencimiento),
         costo: costoBase,
         precio_venta: precioBase,
         utilidad: precioBase - costoBase,
@@ -347,10 +370,6 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
 
           {/* ── PASO 2: Datos básicos ── */}
           <div className="campo">
-            <label>Código *</label>
-            <input value={form.codigo} onChange={(e) => set("codigo", e.target.value)} required placeholder="P-001" />
-          </div>
-          <div className="campo">
             <label>Nombre *</label>
             <input value={form.nombre} onChange={(e) => set("nombre", e.target.value)} required placeholder="Ej: Aceite Vegetal 1L" />
           </div>
@@ -359,12 +378,15 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
             <input value={form.proveedor} onChange={(e) => set("proveedor", e.target.value)} placeholder="Nombre del proveedor" />
           </div>
           <div className="campo">
-            <label>Lote</label>
-            <input value={form.lote} onChange={(e) => set("lote", e.target.value)} placeholder="L-001" />
-          </div>
-          <div className="campo">
             <label>Fecha vencimiento</label>
-            <input type="date" value={form.fecha_vencimiento} onChange={(e) => set("fecha_vencimiento", e.target.value)} />
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="dd/mm/aaaa"
+              maxLength={10}
+              value={form.fecha_vencimiento}
+              onChange={(e) => set("fecha_vencimiento", formatFechaEscritura(e.target.value))}
+            />
           </div>
 
           {/* ── PASO 3: Compra (solo si hay categoría con config) ── */}

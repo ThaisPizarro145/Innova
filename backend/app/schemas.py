@@ -189,7 +189,7 @@ class EquivalenciasProducto(BaseModel):
 
 
 class ProductoBase(BaseModel):
-    codigo: str = Field(..., max_length=80)
+    codigo: Optional[str] = Field(None, max_length=80)
     nombre: str = Field(..., max_length=200)
     categoria: Optional[str] = None
     proveedor: Optional[str] = None

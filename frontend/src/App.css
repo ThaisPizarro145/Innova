@@ -621,6 +621,10 @@
   font-size: 0.72rem;
   font-weight: 700;
 }
+.producto-en-carrito-inline {
+  position: static;
+  flex-shrink: 0;
+}
 .producto-info {
   padding: 10px 12px;
   display: flex;

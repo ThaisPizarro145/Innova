@@ -32,8 +32,6 @@ function descargarComprobanteDirecto(comp) {
 }
 const formasPago = ["Efectivo", "Yape", "Plin", "Tarjeta", "Transferencia", "Crédito"];
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
-const COLORES = ["#0f6df2","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899"];
-function colorPorId(id) { return COLORES[Number(String(id).replace(/\D/g,"") || 0) % COLORES.length]; }
 
 const TIPOS_COMPROBANTE = [
   { value: "NOTA_VENTA", label: "Nota de Venta",      icon: "🗒️", serial: "NV01" },
@@ -520,23 +518,33 @@ function Ventas() {
     setCarrito((prev) => {
       const existe = prev.find((i) => i.key === key);
       if (existe) return prev.map((i) => i.key === key ? { ...i, cantidad: i.cantidad + cantidad } : i);
-      return [...prev, { key, producto_id: producto.id, nombre: producto.nombre, imagen: producto.imagen || null, presentacion, cantidad, precio_unitario, descuento: 0 }];
+      return [...prev, { key, producto_id: producto.id, nombre: producto.nombre, presentacion, cantidad, precio_unitario, descuento: 0 }];
     });
     setProductoParaAgregar(null);
   };
 
-  const cambiarCantidad = (key, v) => { if (v <= 0) return; setCarrito((p) => p.map((i) => i.key === key ? { ...i, cantidad: v } : i)); };
+  const cambiarCantidad = (key, v) => setCarrito((p) => p.map((i) => i.key === key ? { ...i, cantidad: v } : i));
+  const confirmarCantidad = (key) => setCarrito((p) => p.map((i) => {
+    if (i.key !== key) return i;
+    const n = Number(i.cantidad);
+    return { ...i, cantidad: !n || n <= 0 ? 1 : n };
+  }));
   const cambiarPrecio  = (key, v) => setCarrito((p) => p.map((i) => i.key === key ? { ...i, precio_unitario: v } : i));
   const cambiarDesc    = (key, v) => { if (v < 0) return; setCarrito((p) => p.map((i) => i.key === key ? { ...i, descuento: v } : i)); };
   const quitarItem     = (key) => setCarrito((p) => p.filter((i) => i.key !== key));
 
-  const subtotal = useMemo(() => carrito.reduce((a, i) => a + i.precio_unitario * i.cantidad - i.descuento, 0), [carrito]);
-  const igv   = useMemo(() => Number((subtotal * 0.18).toFixed(2)), [subtotal]);
-  const total = useMemo(() => Number((subtotal - descuento + (incluyeIgv ? igv : 0)).toFixed(2)), [subtotal, descuento, igv, incluyeIgv]);
+  // El precio ingresado por el usuario es siempre el precio FINAL (con IGV
+  // incluido si corresponde): nunca se le suma IGV encima. El subtotal y el
+  // IGV se desglosan hacia atrás desde ese total, solo para el comprobante/SUNAT.
+  const bruto = useMemo(() => carrito.reduce((a, i) => a + i.precio_unitario * i.cantidad - i.descuento, 0), [carrito]);
+  const total = useMemo(() => Number((bruto - descuento).toFixed(2)), [bruto, descuento]);
+  const subtotal = useMemo(() => Number((incluyeIgv ? total / 1.18 : total).toFixed(2)), [total, incluyeIgv]);
+  const igv = useMemo(() => Number((incluyeIgv ? total - subtotal : 0).toFixed(2)), [total, subtotal, incluyeIgv]);
 
   /* ── Confirmar venta ── */
   const confirmarVenta = async (tipoDocumento = "NOTA_VENTA", accion = "imprimir") => {
     if (carrito.length === 0) { setMensaje("Agrega productos al carrito antes de confirmar."); return; }
+    if (carrito.some((i) => !(Number(i.cantidad) > 0))) { setMensaje("Revisa las cantidades del carrito: no pueden estar vacías o en 0."); return; }
     // Capturar todos los datos ANTES de limpiar
     const itemsCarrito = [...carrito];
     const subtotalActual = subtotal;
@@ -776,12 +784,11 @@ function Ventas() {
             const enCarrito = carrito.filter((i) => i.producto_id === p.id);
             return (
               <div key={p.id} className="producto-card" onClick={() => setProductoParaAgregar(p)}>
-                <div className="producto-img" style={{ background: colorPorId(p.id) }}>
-                  {p.imagen ? <img src={p.imagen} alt={p.nombre} /> : <span className="producto-inicial">{(p.nombre || "?")[0].toUpperCase()}</span>}
-                  {enCarrito.length > 0 && <span className="producto-en-carrito">✓ {enCarrito.reduce((a, i) => a + i.cantidad, 0)}</span>}
-                </div>
                 <div className="producto-info">
-                  <span className="producto-nombre">{p.nombre}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "6px" }}>
+                    <span className="producto-nombre">{p.nombre}</span>
+                    {enCarrito.length > 0 && <span className="producto-en-carrito producto-en-carrito-inline">✓ {enCarrito.reduce((a, i) => a + i.cantidad, 0)}</span>}
+                  </div>
                   <span className="producto-codigo">{p.codigo}</span>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", marginTop: "4px" }}>
                     {presentaciones.map((pres) => (
@@ -818,7 +825,7 @@ function Ventas() {
                         <tr key={item.key}>
                           <td>{item.nombre}</td>
                           <td><span className="tag-presentacion tag-presentacion-lg">{item.presentacion}</span></td>
-                          <td><input type="number" className="input-sin-flechas" min="0.01" step="0.01" value={item.cantidad} style={{ width: "70px" }} onChange={(e) => cambiarCantidad(item.key, Number(e.target.value))} /></td>
+                          <td><input type="number" className="input-sin-flechas" min="0.01" step="0.01" value={item.cantidad} style={{ width: "70px" }} onChange={(e) => cambiarCantidad(item.key, e.target.value)} onBlur={() => confirmarCantidad(item.key)} /></td>
                           <td><input type="number" min="0" step="0.01" value={item.precio_unitario} style={{ width: "80px" }} onChange={(e) => cambiarPrecio(item.key, Number(e.target.value))} /></td>
                           <td><input type="number" min="0" step="0.01" value={item.descuento} style={{ width: "70px" }} onChange={(e) => cambiarDesc(item.key, Number(e.target.value))} /></td>
                           <td>{fmt(item.precio_unitario * item.cantidad - item.descuento)}</td>

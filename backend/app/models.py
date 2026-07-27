@@ -110,7 +110,7 @@ class Producto(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    codigo = Column(String(80), index=True, nullable=False)
+    codigo = Column(String(80), index=True, nullable=True)
     nombre = Column(String(200), nullable=False)
     categoria = Column(String(150), nullable=True)
     proveedor = Column(String(150), nullable=True)

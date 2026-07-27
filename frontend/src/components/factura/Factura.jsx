@@ -139,7 +139,6 @@ export function generarFacturaHTML(comprobante) {
         <td class="col-cant">${cantStr}</td>
         <td class="col-und">${esc((item.presentacion || "unidad").toUpperCase())}</td>
         <td class="col-desc">${esc(item.nombre)}</td>
-        <td class="col-venc">${item.fecha_vencimiento ? formatearFecha(item.fecha_vencimiento) : "-"}</td>
         <td class="col-pu">S/ ${f2(item.precio)}</td>
         <td class="col-imp">S/ ${f2(item.total)}</td>
       </tr>`;
@@ -195,7 +194,6 @@ export function generarFacturaHTML(comprobante) {
           <th class="col-cant">Cantidad</th>
           <th class="col-und">Unidad</th>
           <th class="col-desc">Descripción</th>
-          <th class="col-venc">Fecha Venc.</th>
           <th class="col-pu">Precio Unit.</th>
           <th class="col-imp">Importe</th>
         </tr>

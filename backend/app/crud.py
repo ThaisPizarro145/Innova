@@ -26,7 +26,7 @@ def listar_productos(db: Session, skip: int = 0, limit: int = 100, query: str = 
 
 
 def crear_producto(db: Session, producto: schemas.ProductoCreate):
-    if db.query(models.Producto).filter(models.Producto.codigo == producto.codigo, models.Producto.eliminado == False).first():
+    if producto.codigo and db.query(models.Producto).filter(models.Producto.codigo == producto.codigo, models.Producto.eliminado == False).first():
         raise ValueError("Ya existe un producto con ese código")
 
     nueva_utilidad = producto.precio_venta - producto.costo
@@ -62,6 +62,32 @@ def crear_producto(db: Session, producto: schemas.ProductoCreate):
     db.add(db_producto)
     db.commit()
     db.refresh(db_producto)
+
+    # El código ya no se digita a mano: se deriva del id autoincremental
+    # de la tabla (igual que un identificador serial de Supabase/Postgres).
+    if not db_producto.codigo:
+        db_producto.codigo = f"P-{db_producto.id:04d}"
+        db.commit()
+        db.refresh(db_producto)
+
+    # Si el producto se registra con stock inicial, debe quedar visible en
+    # el kardex de Inventario (si no, el stock queda "invisible": no hay
+    # movimiento que explique de dónde salió).
+    if db_producto.stock_actual and db_producto.stock_actual > 0:
+        movimiento = models.MovimientoInventario(
+            producto_id=db_producto.id,
+            tipo="ENTRADA",
+            cantidad=db_producto.stock_actual,
+            costo_unitario=db_producto.costo,
+            precio_unitario=db_producto.precio_venta,
+            nota="Stock inicial al registrar producto",
+            lote=db_producto.lote,
+            fecha_vencimiento=db_producto.fecha_vencimiento,
+            stock_despues=db_producto.stock_actual,
+        )
+        db.add(movimiento)
+        db.commit()
+
     return db_producto
 
 
@@ -441,7 +467,10 @@ def registrar_venta(db: Session, venta_data: schemas.VentaCreate):
         raise ValueError("La venta debe contener al menos un producto")
 
     try:
-        subtotal = 0.0
+        # El precio_unitario ingresado es siempre el precio FINAL que paga el
+        # cliente (ya incluye IGV si corresponde). Nunca se suma IGV encima
+        # del precio: se desglosa hacia atrás solo para SUNAT/comprobantes.
+        bruto = 0.0
         detalles = []
         for item in venta_data.detalles:
             producto = get_producto(db, item.producto_id)
@@ -461,7 +490,7 @@ def registrar_venta(db: Session, venta_data: schemas.VentaCreate):
                 )
 
             subtotal_item = item.precio_unitario * item.cantidad
-            subtotal += subtotal_item - item.descuento
+            bruto += subtotal_item - item.descuento
             detalles.append({
                 "producto": producto,
                 "item": item,
@@ -470,8 +499,17 @@ def registrar_venta(db: Session, venta_data: schemas.VentaCreate):
                 "presentacion": presentacion,
             })
 
-        igv = round(subtotal * 0.18, 2) if getattr(venta_data, "incluye_igv", True) else 0.0
-        total = round(subtotal - venta_data.descuento + igv, 2)
+        # El total es el monto final que paga el cliente: precios ya
+        # cargados con IGV, menos el descuento global. La base imponible y
+        # el IGV se desglosan a partir de ese total (total = base * 1.18).
+        total = round(bruto - venta_data.descuento, 2)
+        incluye_igv = getattr(venta_data, "incluye_igv", True)
+        if incluye_igv:
+            subtotal = round(total / 1.18, 2)
+            igv = round(total - subtotal, 2)
+        else:
+            subtotal = total
+            igv = 0.0
 
         tipo_doc = getattr(venta_data, "tipo_documento", "NOTA_VENTA") or "NOTA_VENTA"
 
@@ -906,7 +944,9 @@ def registrar_compra(db: Session, compra_data: "schemas.CompraCreate"):
     db.add(db_compra)
     db.flush()  # obtener id sin commit
 
-    subtotal = 0.0
+    # El precio_empaque que paga el usuario al proveedor ya incluye IGV;
+    # nunca se le suma IGV encima. El desglose se hace hacia atrás al final.
+    total_pagado = 0.0
 
     for item in compra_data.detalles:
         producto = get_producto(db, item.producto_id)
@@ -915,7 +955,7 @@ def registrar_compra(db: Session, compra_data: "schemas.CompraCreate"):
 
         calculo = _calcular_detalle_compra(item, producto)
         linea_total = item.precio_empaque * item.cantidad_empaque
-        subtotal += linea_total
+        total_pagado += linea_total
 
         # 2. Línea de detalle
         detalle = models.CompraDetalle(
@@ -978,11 +1018,15 @@ def registrar_compra(db: Session, compra_data: "schemas.CompraCreate"):
         )
         db.add(movimiento)
 
-    # 5. Totales de cabecera
-    igv = round(subtotal * 0.18, 2)
-    db_compra.subtotal = round(subtotal, 2)
+    # 5. Totales de cabecera: el total es lo que realmente se pagó al
+    # proveedor (ya con IGV incluido); el subtotal y el IGV se desglosan
+    # hacia atrás a partir de ese total, solo para el registro contable.
+    total = round(total_pagado, 2)
+    subtotal = round(total / 1.18, 2)
+    igv = round(total - subtotal, 2)
+    db_compra.subtotal = subtotal
     db_compra.igv = igv
-    db_compra.total = round(subtotal + igv, 2)
+    db_compra.total = total
 
     db.commit()
     db.refresh(db_compra)
@@ -1447,12 +1491,15 @@ def sembrar_categorias_default(db: Session):
     """Inserta las categorías predeterminadas si no existen todavía (tanto en CategoriaConfig como en Categoria simple)."""
     for cat_data in CATEGORIAS_DEFAULT:
         # Sembrar CategoriaConfig (con unidades y conversiones)
-        if not get_categoria_config_por_nombre(db, cat_data["nombre"]):
+        # El nombre es único a nivel de BD sin importar "eliminado", así que
+        # se busca cualquier fila con ese nombre (evita IntegrityError si
+        # quedó una fila eliminada lógicamente con el mismo nombre).
+        if not db.query(models.CategoriaConfig).filter(models.CategoriaConfig.nombre == cat_data["nombre"]).first():
             campos_config = {k: v for k, v in cat_data.items()}
             obj = models.CategoriaConfig(**campos_config)
             db.add(obj)
         # Sembrar Categoria simple (para el selector de productos y la página Categorías)
-        if not get_categoria_por_nombre_simple(db, cat_data["nombre"]):
+        if not db.query(models.Categoria).filter(models.Categoria.nombre == cat_data["nombre"]).first():
             simple = models.Categoria(
                 nombre=cat_data["nombre"],
                 descripcion=cat_data.get("descripcion", ""),
@@ -1680,6 +1727,16 @@ def eliminar_categoria(db: Session, categoria_id: int):
     obj.eliminado = True
     obj.activo = False
     obj.updated_at = datetime.utcnow()
+
+    # Categoria y CategoriaConfig son tablas independientes vinculadas solo
+    # por nombre: si no se elimina también la config, la categoría borrada
+    # sigue apareciendo en "Configuración de Unidades".
+    config = get_categoria_config_por_nombre(db, obj.nombre)
+    if config:
+        config.eliminado = True
+        config.activo = False
+        config.updated_at = datetime.utcnow()
+
     db.commit()
     return obj
 

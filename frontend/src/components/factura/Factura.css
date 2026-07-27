@@ -169,8 +169,7 @@ body {
 .col-codigo { width: 9%; }
 .col-cant   { width: 7%;  text-align: right; }
 .col-und    { width: 8%; }
-.col-desc   { width: 39%; }
-.col-venc   { width: 10%; }
+.col-desc   { width: 49%; }
 .col-pu     { width: 12%; text-align: right; }
 .col-imp    { width: 15%; text-align: right; }
 
@@ -183,7 +182,6 @@ body {
 }
 
 .f-tabla td.col-desc { font-weight: 500; }
-.f-tabla td.col-venc { color: var(--f-gris-700); white-space: nowrap; }
 
 /* ═══ CIERRE: letras + totales ════════════════════════════════════════ */
 .f-cierre {

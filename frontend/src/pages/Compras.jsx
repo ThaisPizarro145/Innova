@@ -523,12 +523,15 @@ export default function Compras() {
   const agregarLinea = () => setDetalles((prev) => [...prev, itemVacio()]);
   const eliminarLinea = (i) => setDetalles((prev) => prev.filter((_, idx) => idx !== i));
 
-  // Calcular totales de vista
+  // Calcular totales de vista. El precio por empaque ya es lo que se paga
+  // al proveedor (con IGV incluido): nunca se le suma IGV encima, se
+  // desglosa hacia atrás solo para el registro contable.
   const totalCompra = detalles.reduce(
     (acc, d) => acc + (Number(d.precio_empaque) || 0) * (Number(d.cantidad_empaque) || 0),
     0
   );
-  const igvCompra = totalCompra * 0.18;
+  const subtotalCompra = totalCompra / 1.18;
+  const igvCompra = totalCompra - subtotalCompra;
 
   const handleGuardar = async () => {
     setError(null);
@@ -676,7 +679,7 @@ export default function Compras() {
           <div className="compras-totales">
             <div className="compra-total-row">
               <span>Subtotal</span>
-              <span>{formatSol(totalCompra)}</span>
+              <span>{formatSol(subtotalCompra)}</span>
             </div>
             <div className="compra-total-row">
               <span>IGV (18%)</span>
@@ -684,7 +687,7 @@ export default function Compras() {
             </div>
             <div className="compra-total-row compra-total-final">
               <span>Total</span>
-              <span>{formatSol(totalCompra + igvCompra)}</span>
+              <span>{formatSol(totalCompra)}</span>
             </div>
           </div>
 

@@ -20,7 +20,7 @@ function App() {
       <aside className="sidebar">
         <h2>🏪 BodegaSys</h2>
         <ul>
-          <li><Link to="/">🏠 Dashboard</Link></li>
+          <li><Link to="/dashboard">🏠 Dashboard</Link></li>
           <li><Link to="/categorias">🏷️ Categorías</Link></li>
           <li><Link to="/categorias-config">⚙️ Config. Unidades</Link></li>
           <li><Link to="/medicamentos">📦 Productos</Link></li>
@@ -37,7 +37,8 @@ function App() {
 
       <main className="content">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Ventas />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/categorias" element={<Categorias />} />
           <Route path="/categorias-config" element={<ConfiguracionCategorias />} />
           <Route path="/medicamentos" element={<Medicamentos />} />
