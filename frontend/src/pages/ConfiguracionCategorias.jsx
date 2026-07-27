@@ -406,8 +406,8 @@ export default function ConfiguracionCategorias() {
   };
 
   return (
-    <div style={{ padding: "24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+    <div style={{ padding: "clamp(12px, 4vw, 24px)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "20px" }}>
         <div>
           <h1 style={{ margin: 0 }}>⚙️ Configuración de Categorías</h1>
           <p style={{ color: "#64748b", margin: "4px 0 0" }}>
@@ -431,7 +431,7 @@ export default function ConfiguracionCategorias() {
       {cargando ? (
         <p style={{ color: "#94a3b8" }}>Cargando configuraciones...</p>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))", gap: "16px" }}>
           {categorias.map((cat) => (
             <div key={cat.id} style={{
               background: "#fff", border: "1px solid #e2e8f0", borderRadius: "14px",

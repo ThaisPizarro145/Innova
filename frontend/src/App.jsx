@@ -1,5 +1,6 @@
 import "./App.css";
-import { Link, Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Routes, Route, useLocation } from "react-router-dom";
 
 import Dashboard from "./pages/Dashboard";
 import Medicamentos from "./pages/Medicamentos";
@@ -14,24 +15,66 @@ import Caja from "./pages/Caja";
 import Compras from "./pages/Compras";
 import Migracion from "./pages/Migracion";
 
+const ENLACES = [
+  { to: "/", label: "🏠 Dashboard" },
+  { to: "/categorias", label: "🏷️ Categorías" },
+  { to: "/categorias-config", label: "⚙️ Config. Unidades" },
+  { to: "/medicamentos", label: "📦 Productos" },
+  { to: "/compras", label: "🛒 Compras" },
+  { to: "/inventario", label: "📋 Inventario" },
+  { to: "/ventas", label: "💵 Ventas" },
+  { to: "/clientes", label: "👥 Clientes" },
+  { to: "/caja", label: "💰 Caja" },
+  { to: "/reportes", label: "📊 Reportes" },
+  { to: "/configuracion", label: "⚙ Configuración" },
+  { to: "/migracion", label: "🔄 Migración BD" },
+];
+
 function App() {
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMenuAbierto(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = menuAbierto ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menuAbierto]);
+
   return (
     <div className="container">
-      <aside className="sidebar">
+      <header className="topbar">
+        <button
+          type="button"
+          className="btn-menu"
+          aria-label={menuAbierto ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={menuAbierto}
+          onClick={() => setMenuAbierto((v) => !v)}
+        >
+          {menuAbierto ? "✕" : "☰"}
+        </button>
         <h2>🏪 BodegaSys</h2>
+      </header>
+
+      {menuAbierto && (
+        <div className="sidebar-overlay" onClick={() => setMenuAbierto(false)} />
+      )}
+
+      <aside className={`sidebar ${menuAbierto ? "sidebar-abierto" : ""}`}>
+        <h2 className="sidebar-titulo">🏪 BodegaSys</h2>
         <ul>
-          <li><Link to="/">🏠 Dashboard</Link></li>
-          <li><Link to="/categorias">🏷️ Categorías</Link></li>
-          <li><Link to="/categorias-config">⚙️ Config. Unidades</Link></li>
-          <li><Link to="/medicamentos">📦 Productos</Link></li>
-          <li><Link to="/compras">🛒 Compras</Link></li>
-          <li><Link to="/inventario">📋 Inventario</Link></li>
-          <li><Link to="/ventas">💵 Ventas</Link></li>
-          <li><Link to="/clientes">👥 Clientes</Link></li>
-          <li><Link to="/caja">💰 Caja</Link></li>
-          <li><Link to="/reportes">📊 Reportes</Link></li>
-          <li><Link to="/configuracion">⚙ Configuración</Link></li>
-          <li><Link to="/migracion">🔄 Migración BD</Link></li>
+          {ENLACES.map((enlace) => (
+            <li key={enlace.to}>
+              <Link
+                to={enlace.to}
+                className={location.pathname === enlace.to ? "activo" : ""}
+              >
+                {enlace.label}
+              </Link>
+            </li>
+          ))}
         </ul>
       </aside>
 
