@@ -1456,11 +1456,29 @@ def listar_categorias_config(db: Session):
 
 
 def crear_categoria_config(db: Session, data: "schemas.CategoriaConfigCreate"):
-    if get_categoria_config_por_nombre(db, data.nombre):
-        raise ValueError(f"Ya existe una configuración para la categoría '{data.nombre}'")
+    # Mismo caso que crear_categoria: "nombre" es UNIQUE a nivel de BD sin
+    # importar "eliminado", así que una config borrada sigue ocupando el
+    # nombre. Se busca cualquier fila con ese nombre y, si está eliminada,
+    # se reactiva en vez de intentar un INSERT duplicado.
+    existente = db.query(models.CategoriaConfig).filter(models.CategoriaConfig.nombre == data.nombre).first()
+    if existente:
+        if not existente.eliminado:
+            raise ValueError(f"Ya existe una configuración para la categoría '{data.nombre}'")
+        for field, value in data.dict().items():
+            setattr(existente, field, value)
+        existente.eliminado = False
+        existente.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existente)
+        return existente
+
     obj = models.CategoriaConfig(**data.dict())
     db.add(obj)
-    db.commit()
+    try:
+        db.commit()
+    except (IntegrityError, DataError) as e:
+        db.rollback()
+        raise ValueError(f"No se pudo crear la configuración: {e.orig}")
     db.refresh(obj)
     return obj
 
@@ -1701,16 +1719,25 @@ def get_categoria(db: Session, categoria_id: int):
     ).first()
 
 
-def get_categoria_por_nombre_simple(db: Session, nombre: str):
-    return db.query(models.Categoria).filter(
-        models.Categoria.nombre == nombre,
-        models.Categoria.eliminado == False,
-    ).first()
-
-
 def crear_categoria(db: Session, data: "schemas.CategoriaCreate"):
-    if get_categoria_por_nombre_simple(db, data.nombre):
-        raise ValueError(f"Ya existe una categoría con el nombre '{data.nombre}'")
+    # "nombre" tiene UNIQUE a nivel de BD sin importar "eliminado": una
+    # categoría borrada (soft delete) sigue ocupando el nombre. Por eso hay
+    # que buscar CUALQUIER fila con ese nombre (no solo las activas): si es
+    # una eliminada, se reactiva en vez de intentar un INSERT duplicado que
+    # chocaría contra el UNIQUE y devolvería el error crudo de Postgres.
+    existente = db.query(models.Categoria).filter(models.Categoria.nombre == data.nombre).first()
+    if existente:
+        if not existente.eliminado:
+            raise ValueError(f"Ya existe una categoría con el nombre '{data.nombre}'")
+        for field, value in data.dict().items():
+            setattr(existente, field, value)
+        existente.eliminado = False
+        existente.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existente)
+        existente.total_productos = 0
+        return existente
+
     obj = models.Categoria(**data.dict())
     db.add(obj)
     try:
