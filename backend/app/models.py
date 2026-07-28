@@ -15,7 +15,7 @@ class Categoria(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(150), unique=True, nullable=False, index=True)
     descripcion = Column(String(300), nullable=True)
-    icono = Column(String(10), default="📦")
+    icono = Column(String(20), default="📦")
     color = Column(String(20), default="#0f6df2")
     activo = Column(Boolean, default=True)
     eliminado = Column(Boolean, default=False)
@@ -68,7 +68,7 @@ class CategoriaConfig(Base):
     # Nombre de la categoría — debe coincidir con Producto.categoria
     nombre = Column(String(150), unique=True, nullable=False, index=True)
     descripcion = Column(String(300), nullable=True)
-    icono = Column(String(10), default="📦")
+    icono = Column(String(20), default="📦")
     color = Column(String(20), default="#0f6df2")
 
     # Unidades permitidas para compra y venta

@@ -11,19 +11,19 @@ TIPOS_FLUJO_VALIDOS = ["caja_unidad", "saco_kilo", "saco_unidad", "multinivel"]
 
 class CategoriaBase(BaseModel):
     nombre: str = Field(..., max_length=150)
-    descripcion: Optional[str] = None
-    icono: str = "📦"
-    color: str = "#0f6df2"
+    descripcion: Optional[str] = Field(None, max_length=300)
+    icono: str = Field("📦", max_length=20)
+    color: str = Field("#0f6df2", max_length=20)
     activo: bool = True
 
 class CategoriaCreate(CategoriaBase):
     pass
 
 class CategoriaUpdate(BaseModel):
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    icono: Optional[str] = None
-    color: Optional[str] = None
+    nombre: Optional[str] = Field(None, max_length=150)
+    descripcion: Optional[str] = Field(None, max_length=300)
+    icono: Optional[str] = Field(None, max_length=20)
+    color: Optional[str] = Field(None, max_length=20)
     activo: Optional[bool] = None
 
 class CategoriaResponse(CategoriaBase):

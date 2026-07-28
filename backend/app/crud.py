@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DataError
 from app import models, schemas
 
 
@@ -1713,7 +1713,11 @@ def crear_categoria(db: Session, data: "schemas.CategoriaCreate"):
         raise ValueError(f"Ya existe una categoría con el nombre '{data.nombre}'")
     obj = models.Categoria(**data.dict())
     db.add(obj)
-    db.commit()
+    try:
+        db.commit()
+    except (IntegrityError, DataError) as e:
+        db.rollback()
+        raise ValueError(f"No se pudo crear la categoría: {e.orig}")
     db.refresh(obj)
     obj.total_productos = 0
     return obj

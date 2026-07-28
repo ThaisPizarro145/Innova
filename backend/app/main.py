@@ -45,10 +45,17 @@ app.add_middleware(
 
 @app.exception_handler(Exception)
 async def manejar_excepcion_no_controlada(request: Request, exc: Exception):
-    # Un error no controlado por defecto no pasa por CORSMiddleware y el navegador
-    # lo reporta como bloqueo CORS. Al registrarlo aquí, la respuesta sí lleva el header.
+    # FastAPI registra los handlers de la clase base Exception como el
+    # "error_handler" de ServerErrorMiddleware, que en el stack ASGI queda
+    # POR FUERA de CORSMiddleware (éste se agrega como user_middleware, que
+    # ServerErrorMiddleware envuelve). Por eso la respuesta de este handler
+    # nunca pasa por CORSMiddleware y el navegador la reporta como "Failed to
+    # fetch" / bloqueo CORS en vez de mostrar el 500 real. Hay que añadir el
+    # header de CORS a mano aquí.
     logger.error("Error no controlado en %s %s:\n%s", request.method, request.url.path, traceback.format_exc())
-    return JSONResponse(status_code=500, content={"detail": f"Error interno del servidor: {exc}"})
+    origin = request.headers.get("origin")
+    headers = {"Access-Control-Allow-Origin": origin or "*"}
+    return JSONResponse(status_code=500, content={"detail": f"Error interno del servidor: {exc}"}, headers=headers)
 
 app.include_router(test.router)
 app.include_router(inventario.router, prefix="/inventario", tags=["Inventario"])
@@ -64,8 +71,23 @@ app.include_router(consulta.router, prefix="/consulta", tags=["Consulta RUC/DNI"
 @app.on_event("startup")
 def on_startup():
     """Sembrar categorías predeterminadas al arrancar si no existen."""
+    from sqlalchemy import text
     from app.database import SessionLocal
     db = SessionLocal()
+    # No usamos Alembic: create_all no altera columnas de tablas ya
+    # existentes. Si "categorias"/"categoria_config" quedaron creadas con
+    # icono VARCHAR(10) (versión anterior del modelo), ensancharla aquí evita
+    # que un ícono válido tumbe el POST con un DataError. ALTER COLUMN ...
+    # TYPE a un VARCHAR más ancho es una operación de metadata en Postgres,
+    # no reescribe la tabla. Cada tabla en su propio try/except: si una falla
+    # (p. ej. no existe todavía) no debe revertir el ajuste de la otra.
+    for tabla in ("categorias", "categoria_config"):
+        try:
+            db.execute(text(f"ALTER TABLE {tabla} ALTER COLUMN icono TYPE VARCHAR(20)"))
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.error("Error al ensanchar columna icono de %s:\n%s", tabla, traceback.format_exc())
     try:
         crud.sembrar_categorias_default(db)
     except Exception:
