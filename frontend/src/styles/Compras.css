@@ -418,11 +418,25 @@
 
 /* Responsive */
 @media (max-width: 640px) {
+  .compras-page {
+    padding: 1rem;
+  }
   .compra-tipo-btn {
     min-width: 80px;
     padding: 0.5rem;
   }
   .compra-campos-row {
     flex-direction: column;
+  }
+  /* En columna, flex-basis controla la altura (eje principal), no el
+     ancho: sin este reset el "flex: 1 1 160px" pensado para fila infla
+     cada campo y separa demasiado unos de otros. */
+  .compra-campo-grupo {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+  }
+  .compras-totales {
+    max-width: none;
   }
 }

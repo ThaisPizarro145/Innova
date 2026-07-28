@@ -574,7 +574,17 @@
 @media (max-width: 640px) {
   .clientes-grid { grid-template-columns: 1fr; }
   .formulario-grid { grid-template-columns: 1fr; }
-  .header-filtros { flex-direction: column; }
+  .header-filtros { flex-direction: column; align-items: stretch; }
+  /* En layout de columna, flex-basis pasa a controlar la ALTURA (eje
+     principal vertical), no el ancho: sin este reset, el flex-basis en
+     px pensado para el layout en fila (ej. 200px) infla la altura del
+     campo y deforma la página. */
+  .header-filtros .input-busqueda,
+  .header-filtros .filtros-grupo {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* ─── Ventas topbar ─── */
