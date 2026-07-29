@@ -5,30 +5,25 @@ import { getEmpresa } from "../services/empresa";
 import { cantidadEnUnidadesBase, stockAmigable } from "../utils/stock";
 import { imprimirNotaVenta, generarComprobanteHTML, imprimirRawBT } from "../components/NotaVenta";
 import { imprimirFactura, descargarFacturaHTML } from "../components/factura/Factura";
+import { descargarHTMLComoPDF } from "../utils/pdf";
 
 const esComprobanteA4 = (tipoDocumento) => tipoDocumento === "BOLETA" || tipoDocumento === "FACTURA";
 
 const SERIES = { BOLETA: "B001", FACTURA: "F001", NOTA_VENTA: "NV01" };
 
-/** Descarga el comprobante: A4 para Boleta/Factura, ticket térmico para Nota de Venta. */
+/** Descarga el comprobante en PDF: A4 para Boleta/Factura, ticket térmico (80mm) para Nota de Venta. */
 function descargarComprobanteDirecto(comp) {
   const tipo = TIPOS_COMPROBANTE.find((t) => t.value === comp.tipo_documento) || TIPOS_COMPROBANTE[0];
   const serie = comp.serie || tipo.serial;
   const numero = comp.numero_documento || String(comp.id || "00000001").padStart(8, "0");
   const numeroCompleto = `${serie}-${numero}`;
   const datos = { ...comp, serie, numero_documento: numero, clienteDoc: comp.clienteDni || "" };
-  const html = esComprobanteA4(comp.tipo_documento)
-    ? descargarFacturaHTML(datos)
-    : generarComprobanteHTML(datos);
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `comprobante-${numeroCompleto}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const esA4 = esComprobanteA4(comp.tipo_documento);
+  const html = esA4 ? descargarFacturaHTML(datos) : generarComprobanteHTML(datos);
+  descargarHTMLComoPDF(html, `comprobante-${numeroCompleto}`, {
+    anchoPx: esA4 ? 800 : 420,
+    formato: esA4 ? "a4" : "ticket",
+  });
 }
 const formasPago = ["Efectivo", "Yape", "Plin", "Tarjeta", "Transferencia", "Crédito"];
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;

@@ -14,6 +14,7 @@ const ETIQUETAS = {
   kilo: "Kilo", saco: "Saco", medio_saco: "½ Saco",
   caja: "Caja", unidad: "Unidad", paquete: "Paquete",
   maple: "Maple", bolsa: "Bolsa", litro: "Litro",
+  balde: "Balde", docena: "Docena",
 };
 
 const UNIDADES_DISPONIBLES = [
@@ -26,6 +27,8 @@ const UNIDADES_DISPONIBLES = [
   { value: "maple",     label: "Maple" },
   { value: "bolsa",     label: "Bolsa" },
   { value: "litro",     label: "Litro" },
+  { value: "balde",     label: "Balde" },
+  { value: "docena",    label: "Docena" },
 ];
 
 const TIPOS_FLUJO = [
