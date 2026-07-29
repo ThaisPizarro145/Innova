@@ -124,12 +124,28 @@ def eliminar_producto(db: Session, producto_id: int):
     db_producto = get_producto(db, producto_id)
     if not db_producto:
         return None
-    db_producto.eliminado = True
-    db_producto.activo = False
-    db_producto.updated_at = datetime.utcnow()
+
+    # Si el producto nunca se usó en una venta, compra o movimiento de
+    # inventario, se puede borrar de verdad (igual que eliminar_cliente).
+    # Si tiene historial, se soft-deletea para no romper reportes pasados.
+    tiene_historial = (
+        db.query(models.VentaDetalle).filter(models.VentaDetalle.producto_id == producto_id).first() is not None
+        or db.query(models.CompraDetalle).filter(models.CompraDetalle.producto_id == producto_id).first() is not None
+        or db.query(models.MovimientoInventario).filter(models.MovimientoInventario.producto_id == producto_id).first() is not None
+    )
+
+    if tiene_historial:
+        db_producto.eliminado = True
+        db_producto.activo = False
+        db_producto.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_producto)
+        return db_producto
+
+    datos = schemas.ProductoResponse.from_orm(db_producto).dict()
+    db.delete(db_producto)
     db.commit()
-    db.refresh(db_producto)
-    return db_producto
+    return datos
 
 
 def crear_movimiento_inventario(db: Session, movimiento: schemas.MovimientoInventarioCreate):
@@ -1499,11 +1515,19 @@ def eliminar_categoria_config(db: Session, categoria_id: int):
     obj = get_categoria_config(db, categoria_id)
     if not obj:
         return None
-    obj.eliminado = True
-    obj.activo = False
-    obj.updated_at = datetime.utcnow()
+
+    tiene_productos = db.query(models.Producto).filter(models.Producto.categoria == obj.nombre).first() is not None
+
+    if tiene_productos:
+        obj.eliminado = True
+        obj.activo = False
+        obj.updated_at = datetime.utcnow()
+        db.commit()
+        return obj
+
+    db.delete(obj)
     db.commit()
-    return obj
+    return {"id": categoria_id}
 
 
 def sembrar_categorias_default(db: Session):
@@ -1770,21 +1794,35 @@ def eliminar_categoria(db: Session, categoria_id: int):
     obj = get_categoria(db, categoria_id)
     if not obj:
         return None
-    obj.eliminado = True
-    obj.activo = False
-    obj.updated_at = datetime.utcnow()
 
     # Categoria y CategoriaConfig son tablas independientes vinculadas solo
     # por nombre: si no se elimina también la config, la categoría borrada
     # sigue apareciendo en "Configuración de Unidades".
     config = get_categoria_config_por_nombre(db, obj.nombre)
-    if config:
-        config.eliminado = True
-        config.activo = False
-        config.updated_at = datetime.utcnow()
 
+    # Ningún producto tiene FK hacia categorias.id (Producto.categoria es
+    # solo un string), así que si ya no queda ningún producto con este
+    # nombre de categoría (ni siquiera soft-deleteado) se puede borrar de
+    # verdad. Si aún hay productos referenciándola, se mantiene el soft
+    # delete para no perder el ícono/color al mostrarlos.
+    tiene_productos = db.query(models.Producto).filter(models.Producto.categoria == obj.nombre).first() is not None
+
+    if tiene_productos:
+        obj.eliminado = True
+        obj.activo = False
+        obj.updated_at = datetime.utcnow()
+        if config:
+            config.eliminado = True
+            config.activo = False
+            config.updated_at = datetime.utcnow()
+        db.commit()
+        return obj
+
+    if config:
+        db.delete(config)
+    db.delete(obj)
     db.commit()
-    return obj
+    return {"id": categoria_id}
 
 
 # ── CajaMovimiento ─────────────────────────────────────────────────────────────
