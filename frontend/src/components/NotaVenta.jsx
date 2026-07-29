@@ -464,17 +464,13 @@ function generarTicketTexto(comprobante) {
   const hayIgv       = !esNota && Number(igv) > 0;
 
   const lineas = [
-    GS_DOBLE,
     centrar(EMPRESA.nombre),
     centrar(`RUC: ${EMPRESA.ruc}`),
     centrar(EMPRESA.direccion),
     centrar(EMPRESA.ciudad),
-    GS_NORMAL,
     linea(),
-    GS_DOBLE,
     centrar(titulo),
     centrar(numeroCompleto),
-    GS_NORMAL,
     linea(),
     `Fecha  : ${fechaStr}  Hora: ${horaStr}`,
     `Cliente: ${(clienteNombre || "CLIENTES VARIOS").toUpperCase()}`,
@@ -488,9 +484,7 @@ function generarTicketTexto(comprobante) {
     hayDescuento ? filaDosCol("Descuento", `- S/ ${f2(descuento)}`) : null,
     hayIgv ? filaDosCol("IGV (18%)", `S/ ${f2(igv)}`) : null,
     linea(),
-    GS_DOBLE,
     filaDosCol("TOTAL A PAGAR", `S/ ${f2(total)}`),
-    GS_NORMAL,
     linea(),
     ...listaPagos.map((p) => filaDosCol(p.tipo || forma_pago, `S/ ${f2(p.monto)}`)),
     vuelto > 0 ? filaDosCol("Vuelto", `S/ ${f2(vuelto)}`) : null,
@@ -514,11 +508,12 @@ function generarTicketTexto(comprobante) {
  */
 export function imprimirRawBT(comprobante) {
   const texto = generarTicketTexto(comprobante);
-  // 3 líneas en blanco al inicio: el cabezal empieza pegado al borde y
+  // 7 líneas en blanco al inicio: el cabezal empieza pegado al borde y
   // corta el nombre de la empresa/RUC si no se deja margen.
-  // Envolvemos todo el cuerpo en negrita (ESC E 1) para que el cabezal
-  // térmico imprima con más presión/tinta y no salga tenue.
-  const cuerpo = `${ESC_INIT}\n\n\n${ESC_BOLD_ON}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
+  // Envolvemos todo el cuerpo en negrita (ESC E 1) y a doble tamaño
+  // (GS ! 0x11) para que todo el ticket salga tan grande y oscuro como
+  // la línea de TOTAL A PAGAR.
+  const cuerpo = `${ESC_INIT}\n\n\n\n\n\n\n${ESC_BOLD_ON}${GS_DOBLE}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
   const intentUrl = `intent:${encodeURIComponent(cuerpo)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
   window.location.href = intentUrl;
 }
