@@ -380,7 +380,7 @@ const GS  = "\x1D";
 const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
 const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
 const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
-const GS_DOBLE      = `${GS}!\x11`; // Doble alto + doble ancho
+const GS_DOBLE      = `${GS}!\x77`; // Máximo alto + máximo ancho (x8, tope del protocolo ESC/POS)
 const GS_NORMAL     = `${GS}!\x00`; // Tamaño normal
 
 function centrar(texto, ancho = RAWBT_ANCHO) {
@@ -508,12 +508,12 @@ function generarTicketTexto(comprobante) {
  */
 export function imprimirRawBT(comprobante) {
   const texto = generarTicketTexto(comprobante);
-  // 7 líneas en blanco al inicio: el cabezal empieza pegado al borde y
+  // 30 líneas en blanco al inicio: el cabezal empieza pegado al borde y
   // corta el nombre de la empresa/RUC si no se deja margen.
-  // Envolvemos todo el cuerpo en negrita (ESC E 1) y a doble tamaño
-  // (GS ! 0x11) para que todo el ticket salga tan grande y oscuro como
-  // la línea de TOTAL A PAGAR.
-  const cuerpo = `${ESC_INIT}\n\n\n\n\n\n\n${ESC_BOLD_ON}${GS_DOBLE}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
+  // Envolvemos todo el cuerpo en negrita (ESC E 1) y al tamaño máximo
+  // que soporta ESC/POS (GS ! 0x77, x8 ancho y alto).
+  const margenSuperior = "\n".repeat(30);
+  const cuerpo = `${ESC_INIT}${margenSuperior}${ESC_BOLD_ON}${GS_DOBLE}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
   const intentUrl = `intent:${encodeURIComponent(cuerpo)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
   window.location.href = intentUrl;
 }
