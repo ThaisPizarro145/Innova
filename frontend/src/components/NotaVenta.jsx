@@ -151,7 +151,7 @@ function generarTicketHTML(comprobante) {
     /* ── Body ────────────────────────────────────────── */
     body {
       font-family: 'Courier New', Courier, monospace;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
       line-height: 1.5;
       color: #000;
@@ -282,6 +282,9 @@ function generarTicketHTML(comprobante) {
   </style>
 </head>
 <body>
+
+  <!-- ═══ MARGEN SUPERIOR ══════════════════════════════ -->
+  <br><br><br><br><br><br><br>
 
   <!-- ═══ ENCABEZADO ═══════════════════════════════════ -->
   <div class="emp-nombre">${EMPRESA.nombre}</div>
