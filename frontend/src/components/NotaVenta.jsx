@@ -1,6 +1,6 @@
 /**
  * NotaVenta.jsx — Ticket térmico profesional
- * Compatible: 58mm / 80mm | HTML/CSS (impresión por navegador y RawBT)
+ * Compatible: 58mm / 80mm | ESC/POS | Courier New
  * Solo diseño — lógica del sistema intacta.
  */
 
@@ -15,8 +15,7 @@ export const EMPRESA = {
 
 const f2 = (v) => Number(v || 0).toFixed(2);
 
-function generarTicketHTML(comprobante, opciones = {}) {
-  const { fontFamily = "'Courier New', Courier, monospace" } = opciones;
+function generarTicketHTML(comprobante) {
   const {
     tipo_documento   = "NOTA_VENTA",
     serie            = "NV01",
@@ -151,7 +150,7 @@ function generarTicketHTML(comprobante, opciones = {}) {
 
     /* ── Body ────────────────────────────────────────── */
     body {
-      font-family: ${fontFamily};
+      font-family: 'Courier New', Courier, monospace;
       font-size: 14px;
       font-weight: 700;
       line-height: 1.5;
@@ -375,16 +374,149 @@ function generarTicketHTML(comprobante, opciones = {}) {
 </html>`;
 }
 
+// ── Ticket en texto plano (para impresión térmica vía RawBT) ────
+const RAWBT_ANCHO = 32; // columnas típicas de impresora térmica 58mm
+
+// ── Comandos ESC/POS ─────────────────────────────────────────────
+const ESC = "\x1B";
+const GS  = "\x1D";
+const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
+const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
+const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
+const GS_NORMAL     = `${GS}!\x00`; // Tamaño normal
+
+function centrar(texto, ancho = RAWBT_ANCHO) {
+  const t = String(texto ?? "");
+  if (t.length >= ancho) return t.slice(0, ancho);
+  const espacios = ancho - t.length;
+  const izq = Math.floor(espacios / 2);
+  return " ".repeat(izq) + t;
+}
+
+function linea(ancho = RAWBT_ANCHO, car = "-") {
+  return car.repeat(ancho);
+}
+
+function filaDosCol(izq, der, ancho = RAWBT_ANCHO) {
+  const i = String(izq ?? "");
+  const d = String(der ?? "");
+  const espacio = Math.max(1, ancho - i.length - d.length);
+  return i + " ".repeat(espacio) + d;
+}
+
+function generarTicketTexto(comprobante) {
+  const {
+    tipo_documento   = "NOTA_VENTA",
+    serie            = "NV01",
+    numero_documento = "00000001",
+    fecha,
+    clienteNombre    = "CLIENTES VARIOS",
+    clienteDoc       = "",
+    clienteDireccion = "",
+    vendedor         = "",
+    items            = [],
+    subtotal         = 0,
+    descuento        = 0,
+    igv              = 0,
+    total            = 0,
+    pagos            = [],
+    forma_pago       = "Efectivo",
+    observaciones    = "",
+  } = comprobante;
+
+  const esNota   = tipo_documento === "NOTA_VENTA";
+  const esBoleta = tipo_documento === "BOLETA";
+  const titulo   = esNota ? "NOTA DE VENTA" : esBoleta ? "BOLETA DE VENTA" : "FACTURA ELECTRÓNICA";
+  const numeroCompleto = `${serie}-${String(numero_documento).padStart(8, "0")}`;
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  function parsarFecha(f) {
+    if (!f) return new Date();
+    if (f instanceof Date) return isNaN(f) ? new Date() : f;
+    const matchLocal = String(f).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})/);
+    if (matchLocal) {
+      const [, dia, mes, anio, h, m] = matchLocal;
+      return new Date(Number(anio), Number(mes) - 1, Number(dia), Number(h), Number(m));
+    }
+    const d = new Date(f);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+  const d = parsarFecha(fecha);
+  const fechaStr = `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const horaStr  = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+  const listaPagos  = pagos.length > 0 ? pagos : [{ tipo: forma_pago, monto: total }];
+  const totalPagado = listaPagos.reduce((a, p) => a + Number(p.monto || 0), 0);
+  const vuelto      = Math.max(0, totalPagado - Number(total));
+
+  const lineasItems = items.flatMap((item) => {
+    const cant    = Number(item.cantidad || 0);
+    const precio  = Number(item.precio || 0);
+    const tot     = Number(item.total ?? cant * precio);
+    const cantStr = cant % 1 === 0 ? String(cant) : cant.toFixed(2);
+    const und     = (item.presentacion || "UND").toUpperCase();
+    const desc    = (item.nombre || "").toUpperCase();
+    return [
+      desc,
+      filaDosCol(`  ${cantStr} ${und} x S/${f2(precio)}`, `S/${f2(tot)}`),
+    ];
+  });
+
+  const hayDescuento = Number(descuento) > 0;
+  const hayIgv       = !esNota && Number(igv) > 0;
+
+  const lineas = [
+    centrar(EMPRESA.nombre),
+    centrar(`RUC: ${EMPRESA.ruc}`),
+    centrar(EMPRESA.direccion),
+    centrar(EMPRESA.ciudad),
+    linea(),
+    centrar(titulo),
+    centrar(numeroCompleto),
+    linea(),
+    `Fecha  : ${fechaStr}  Hora: ${horaStr}`,
+    `Cliente: ${(clienteNombre || "CLIENTES VARIOS").toUpperCase()}`,
+    clienteDoc ? `Doc.   : ${clienteDoc}` : null,
+    clienteDireccion ? `Dir.   : ${clienteDireccion}` : null,
+    vendedor ? `Vend.  : ${vendedor}` : null,
+    linea(),
+    "Descripción",
+    filaDosCol("Cant Und x P.Unit", "Total"),
+    linea(),
+    ...lineasItems,
+    linea(),
+    filaDosCol("Subtotal", `S/ ${f2(subtotal)}`),
+    hayDescuento ? filaDosCol("Descuento", `- S/ ${f2(descuento)}`) : null,
+    hayIgv ? filaDosCol("IGV (18%)", `S/ ${f2(igv)}`) : null,
+    linea(),
+    filaDosCol("TOTAL A PAGAR", `S/ ${f2(total)}`),
+    linea(),
+    ...listaPagos.map((p) => filaDosCol(p.tipo || forma_pago, `S/ ${f2(p.monto)}`)),
+    vuelto > 0 ? filaDosCol("Vuelto", `S/ ${f2(vuelto)}`) : null,
+    observaciones ? linea() : null,
+    observaciones ? observaciones : null,
+    linea(),
+    centrar("¡Gracias por su compra!"),
+    centrar("Vuelva pronto."),
+    "",
+    "",
+  ].filter((l) => l !== null);
+
+  return lineas.join("\n");
+}
+
 /**
  * Imprime el comprobante en una impresora térmica Bluetooth vía la app
- * RawBT (Android), enviándole el ticket como HTML/CSS (tipografía Arial,
- * tabla de productos alineada) en vez de texto plano ESC/POS. RawBT
- * renderiza el HTML y lo imprime como imagen. Si RawBT no está instalada,
- * Android ofrece instalarla desde Play Store automáticamente.
+ * RawBT (Android), usando el esquema de intent que RawBT expone para
+ * recibir texto desde el navegador. Si RawBT no está instalada, Android
+ * ofrece instalarla desde Play Store automáticamente.
  */
 export function imprimirRawBT(comprobante) {
-  const html = generarTicketHTML(comprobante, { fontFamily: "Arial, Helvetica, sans-serif" });
-  const intentUrl = `intent:#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;type=text/html;S.data=${encodeURIComponent(html)};end;`;
+  const texto = generarTicketTexto(comprobante);
+  // Sin margen superior y tamaño normal (1x1): solo negrita (ESC E 1)
+  // para que el cabezal imprima oscuro sin agrandar la letra.
+  const cuerpo = `${ESC_INIT}${GS_NORMAL}${ESC_BOLD_ON}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
+  const intentUrl = `intent:${encodeURIComponent(cuerpo)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
   window.location.href = intentUrl;
 }
 
