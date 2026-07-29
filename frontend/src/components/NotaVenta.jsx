@@ -18,7 +18,12 @@ const f2 = (v) => Number(v || 0).toFixed(2);
 
 /** Arma los estilos y el cuerpo HTML del ticket, sin el envoltorio <html>/<head>/<body>. */
 function construirTicket(comprobante, opciones = {}) {
-  const { fontFamily = "'Courier New', Courier, monospace" } = opciones;
+  const {
+    fontFamily = "'Courier New', Courier, monospace",
+    escala     = 1,   // multiplicador de todos los font-size del ticket
+    pesoBase   = 700, // font-weight del cuerpo del ticket
+  } = opciones;
+  const t = (px) => `${Math.round(px * escala * 10) / 10}px`;
   const {
     tipo_documento   = "NOTA_VENTA",
     serie            = "NV01",
@@ -149,8 +154,8 @@ function construirTicket(comprobante, opciones = {}) {
     /* ── Body ────────────────────────────────────────── */
     body {
       font-family: ${fontFamily};
-      font-size: 14px;
-      font-weight: 700;
+      font-size: ${t(14)};
+      font-weight: ${pesoBase};
       line-height: 1.5;
       color: #000;
       background: #fff;
@@ -164,14 +169,14 @@ function construirTicket(comprobante, opciones = {}) {
 
     /* ── Encabezado empresa ──────────────────────────── */
     .emp-nombre {
-      font-size: 13.5px;
+      font-size: ${t(13.5)};
       font-weight: 900;
       text-align: center;
       letter-spacing: 0.3px;
       line-height: 1.35;
     }
     .emp-info {
-      font-size: 11px;
+      font-size: ${t(11)};
       text-align: center;
       line-height: 1.65;
       margin-top: 1px;
@@ -183,14 +188,14 @@ function construirTicket(comprobante, opciones = {}) {
 
     /* ── Tipo de comprobante ─────────────────────────── */
     .comp-titulo {
-      font-size: 15px;
+      font-size: ${t(15)};
       font-weight: 900;
       text-align: center;
       letter-spacing: 2px;
       margin: 4px 0 2px 0;
     }
     .comp-numero {
-      font-size: 13px;
+      font-size: ${t(13)};
       font-weight: 700;
       text-align: center;
     }
@@ -199,7 +204,7 @@ function construirTicket(comprobante, opciones = {}) {
     .tbl-cliente {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11.5px;
+      font-size: ${t(11.5)};
       line-height: 1.6;
     }
     .c-etq { font-weight: 700; white-space: nowrap; padding-right: 3px; width: 74px; }
@@ -210,11 +215,11 @@ function construirTicket(comprobante, opciones = {}) {
     .tbl-det {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11.5px;
+      font-size: ${t(11.5)};
     }
     .det-thead th {
       font-weight: 700;
-      font-size: 11px;
+      font-size: ${t(11)};
       padding: 1px 2px;
       border-bottom: 1px solid #000;
     }
@@ -230,7 +235,7 @@ function construirTicket(comprobante, opciones = {}) {
     .tbl-tot {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11.5px;
+      font-size: ${t(11.5)};
     }
     .t-row td { padding: 1px 2px; line-height: 1.55; }
     .t-row td:first-child { text-align: left; }
@@ -238,7 +243,7 @@ function construirTicket(comprobante, opciones = {}) {
 
     /* Total final */
     .t-total td {
-      font-size: 15px;
+      font-size: ${t(15)};
       font-weight: 900;
       padding: 2px 2px;
     }
@@ -250,13 +255,13 @@ function construirTicket(comprobante, opciones = {}) {
 
     /* ── Sección pagos ───────────────────────────────── */
     .pagos-titulo {
-      font-size: 12px;
+      font-size: ${t(12)};
       font-weight: 700;
       text-align: center;
       margin: 3px 0 1px 0;
     }
     .pagos-fecha {
-      font-size: 11px;
+      font-size: ${t(11)};
       text-align: center;
       margin-bottom: 2px;
     }
@@ -264,16 +269,16 @@ function construirTicket(comprobante, opciones = {}) {
     /* ── Pie ─────────────────────────────────────────── */
     .pie {
       text-align: center;
-      font-size: 11px;
+      font-size: ${t(11)};
       line-height: 1.7;
       margin-top: 3px;
     }
     .pie-gracias {
-      font-size: 13.5px;
+      font-size: ${t(13.5)};
       font-weight: 900;
     }
     .pie-electronico {
-      font-size: 10px;
+      font-size: ${t(10)};
       font-style: italic;
       margin-top: 3px;
     }
@@ -398,7 +403,11 @@ const RAWBT_ANCHO_PX = 420;
  * instalada, Android ofrece instalarla desde Play Store automáticamente.
  */
 export async function imprimirRawBT(comprobante) {
-  const html = generarTicketHTML(comprobante, { fontFamily: "Arial, Helvetica, sans-serif" });
+  const html = generarTicketHTML(comprobante, {
+    fontFamily: "Arial, Helvetica, sans-serif",
+    escala: 1.5,
+    pesoBase: 900,
+  });
 
   // Se renderiza dentro de un iframe aislado (no un <div> del documento
   // principal) para que los estilos del ticket no se filtren a la app.
