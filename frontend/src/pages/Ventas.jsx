@@ -439,7 +439,9 @@ function Ventas() {
   const [productoParaAgregar, setProductoParaAgregar] = useState(null);
 
   // Filtros historial
-  const hoy = new Date().toISOString().slice(0, 10);
+  // Fecha local (no UTC) para que "hoy" no se adelante un día por la diferencia horaria
+  const fechaLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const hoy = fechaLocal(new Date());
   const [filtroFechaDesde, setFiltroFechaDesde] = useState(hoy);
   const [filtroFechaHasta, setFiltroFechaHasta] = useState(hoy);
 

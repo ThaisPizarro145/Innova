@@ -496,9 +496,18 @@ function generarTicketTexto(comprobante) {
  * recibir texto desde el navegador. Si RawBT no está instalada, Android
  * ofrece instalarla desde Play Store automáticamente.
  */
+// ── Comandos ESC/POS ─────────────────────────────────────────────
+const ESC = "\x1B";
+const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
+const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
+const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
+
 export function imprimirRawBT(comprobante) {
   const texto = generarTicketTexto(comprobante);
-  const intentUrl = `intent:${encodeURIComponent(texto)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+  // Envolvemos todo el cuerpo en negrita (ESC E 1) para que el cabezal
+  // térmico imprima con más presión/tinta y no salga tenue.
+  const cuerpo = `${ESC_INIT}${ESC_BOLD_ON}${texto}${ESC_BOLD_OFF}`;
+  const intentUrl = `intent:${encodeURIComponent(cuerpo)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
   window.location.href = intentUrl;
 }
 
