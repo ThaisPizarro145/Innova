@@ -374,6 +374,15 @@ function generarTicketHTML(comprobante) {
 // ── Ticket en texto plano (para impresión térmica vía RawBT) ────
 const RAWBT_ANCHO = 32; // columnas típicas de impresora térmica 58mm
 
+// ── Comandos ESC/POS ─────────────────────────────────────────────
+const ESC = "\x1B";
+const GS  = "\x1D";
+const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
+const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
+const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
+const GS_DOBLE      = `${GS}!\x11`; // Doble alto + doble ancho
+const GS_NORMAL     = `${GS}!\x00`; // Tamaño normal
+
 function centrar(texto, ancho = RAWBT_ANCHO) {
   const t = String(texto ?? "");
   if (t.length >= ancho) return t.slice(0, ancho);
@@ -455,13 +464,17 @@ function generarTicketTexto(comprobante) {
   const hayIgv       = !esNota && Number(igv) > 0;
 
   const lineas = [
+    GS_DOBLE,
     centrar(EMPRESA.nombre),
     centrar(`RUC: ${EMPRESA.ruc}`),
     centrar(EMPRESA.direccion),
     centrar(EMPRESA.ciudad),
+    GS_NORMAL,
     linea(),
+    GS_DOBLE,
     centrar(titulo),
     centrar(numeroCompleto),
+    GS_NORMAL,
     linea(),
     `Fecha  : ${fechaStr}  Hora: ${horaStr}`,
     `Cliente: ${(clienteNombre || "CLIENTES VARIOS").toUpperCase()}`,
@@ -475,7 +488,9 @@ function generarTicketTexto(comprobante) {
     hayDescuento ? filaDosCol("Descuento", `- S/ ${f2(descuento)}`) : null,
     hayIgv ? filaDosCol("IGV (18%)", `S/ ${f2(igv)}`) : null,
     linea(),
+    GS_DOBLE,
     filaDosCol("TOTAL A PAGAR", `S/ ${f2(total)}`),
+    GS_NORMAL,
     linea(),
     ...listaPagos.map((p) => filaDosCol(p.tipo || forma_pago, `S/ ${f2(p.monto)}`)),
     vuelto > 0 ? filaDosCol("Vuelto", `S/ ${f2(vuelto)}`) : null,
@@ -497,17 +512,13 @@ function generarTicketTexto(comprobante) {
  * recibir texto desde el navegador. Si RawBT no está instalada, Android
  * ofrece instalarla desde Play Store automáticamente.
  */
-// ── Comandos ESC/POS ─────────────────────────────────────────────
-const ESC = "\x1B";
-const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
-const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
-const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
-
 export function imprimirRawBT(comprobante) {
   const texto = generarTicketTexto(comprobante);
+  // 3 líneas en blanco al inicio: el cabezal empieza pegado al borde y
+  // corta el nombre de la empresa/RUC si no se deja margen.
   // Envolvemos todo el cuerpo en negrita (ESC E 1) para que el cabezal
   // térmico imprima con más presión/tinta y no salga tenue.
-  const cuerpo = `${ESC_INIT}${ESC_BOLD_ON}${texto}${ESC_BOLD_OFF}`;
+  const cuerpo = `${ESC_INIT}\n\n\n${ESC_BOLD_ON}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
   const intentUrl = `intent:${encodeURIComponent(cuerpo)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
   window.location.href = intentUrl;
 }
