@@ -152,6 +152,7 @@ function generarTicketHTML(comprobante) {
     body {
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
+      font-weight: 700;
       line-height: 1.5;
       color: #000;
       background: #fff;
