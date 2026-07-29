@@ -902,6 +902,12 @@ function Ventas() {
                         <td>{v.forma_pago}</td>
                         <td style={{ display: "flex", gap: "6px" }}>
                           <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => imprimirVentaHistorial(v, productos)}>🖨️</button>
+                          {(v.tipo_documento === "NOTA_VENTA" || !v.tipo_documento) && (
+                            <button type="button" className="btn-export"
+                              style={{ padding: "5px 9px", fontSize: "0.8rem", background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}
+                              title="Imprimir en impresora térmica Bluetooth vía la app RawBT"
+                              onClick={() => imprimirVentaHistorialRawBT(v, productos)}>📱</button>
+                          )}
                           <button type="button" className="btn-export" style={{ padding: "5px 9px", fontSize: "0.8rem" }} onClick={() => descargarVentaHistorial(v, productos)}>⬇️</button>
                           {v.estado !== "ANULADA" && <button type="button" style={{ background: "#f59e0b", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }} onClick={() => anular(v.id)}>Anular</button>}
                           <button type="button" style={{ background: "#ef4444", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }} onClick={() => eliminar(v.id)}>🗑️</button>
@@ -972,6 +978,25 @@ function imprimirVentaHistorial(venta, productos = []) {
     igv: venta.igv,
     total: venta.total,
     items: itemsDesdeVenta(venta, productos),
+  });
+}
+
+function imprimirVentaHistorialRawBT(venta, productos = []) {
+  imprimirRawBT({
+    tipo_documento: venta.tipo_documento || "NOTA_VENTA",
+    serie: venta.serie || "NV01",
+    numero_documento: venta.numero_documento || String(venta.id).padStart(8, "0"),
+    fecha: venta.fecha,
+    clienteNombre: venta.cliente_nombre || "Cliente general",
+    clienteDoc: venta.cliente_dni || venta.cliente_ruc || "",
+    clienteDireccion: "",
+    vendedor: "",
+    items: itemsDesdeVenta(venta, productos),
+    subtotal: venta.subtotal || venta.total,
+    descuento: venta.descuento || 0,
+    total: venta.total,
+    forma_pago: venta.forma_pago,
+    pagos: [],
   });
 }
 

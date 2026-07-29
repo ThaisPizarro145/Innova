@@ -383,7 +383,7 @@ const GS  = "\x1D";
 const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
 const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
 const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
-const GS_DOBLE      = `${GS}!\x77`; // Máximo alto + máximo ancho (x8, tope del protocolo ESC/POS)
+const GS_DOBLE      = `${GS}!\x22`; // Triple alto + triple ancho (x3, tamaño mediano)
 const GS_NORMAL     = `${GS}!\x00`; // Tamaño normal
 
 function centrar(texto, ancho = RAWBT_ANCHO) {
