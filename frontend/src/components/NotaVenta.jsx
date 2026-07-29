@@ -1,8 +1,9 @@
 /**
  * NotaVenta.jsx — Ticket térmico profesional
- * Compatible: 58mm / 80mm | ESC/POS | Courier New
+ * Compatible: 58mm / 80mm | HTML/CSS (impresión por navegador y RawBT vía imagen)
  * Solo diseño — lógica del sistema intacta.
  */
+import html2canvas from "html2canvas";
 
 export const EMPRESA = {
   nombre:    "CORPORACION SOMOS ALIADOS S.A.C.",
@@ -15,7 +16,9 @@ export const EMPRESA = {
 
 const f2 = (v) => Number(v || 0).toFixed(2);
 
-function generarTicketHTML(comprobante) {
+/** Arma los estilos y el cuerpo HTML del ticket, sin el envoltorio <html>/<head>/<body>. */
+function construirTicket(comprobante, opciones = {}) {
+  const { fontFamily = "'Courier New', Courier, monospace" } = opciones;
   const {
     tipo_documento   = "NOTA_VENTA",
     serie            = "NV01",
@@ -133,12 +136,7 @@ function generarTicketHTML(comprobante) {
     ? `<tr class="t-row t-vuelto"><td>Vuelto</td><td>S/ ${f2(vuelto)}</td></tr>`
     : "";
 
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8"/>
-  <title>${titulo} ${numeroCompleto}</title>
-  <style>
+  const estilos = `
     /* ── Reset ───────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -150,7 +148,7 @@ function generarTicketHTML(comprobante) {
 
     /* ── Body ────────────────────────────────────────── */
     body {
-      font-family: 'Courier New', Courier, monospace;
+      font-family: ${fontFamily};
       font-size: 14px;
       font-weight: 700;
       line-height: 1.5;
@@ -279,10 +277,9 @@ function generarTicketHTML(comprobante) {
       font-style: italic;
       margin-top: 3px;
     }
-  </style>
-</head>
-<body>
+  `;
 
+  const cuerpo = `
   <!-- ═══ MARGEN SUPERIOR ══════════════════════════════ -->
   <br><br><br><br><br><br><br>
 
@@ -369,155 +366,69 @@ function generarTicketHTML(comprobante) {
       ? `<div class="pie-electronico">Representación impresa del<br>comprobante electrónico</div>`
       : ""}
   </div>
+  `;
 
-</body>
+  return { estilos, cuerpo, titulo, numeroCompleto };
+}
+
+function generarTicketHTML(comprobante, opciones = {}) {
+  const { estilos, cuerpo, titulo, numeroCompleto } = construirTicket(comprobante, opciones);
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${titulo} ${numeroCompleto}</title>
+  <style>${estilos}</style>
+</head>
+<body>${cuerpo}</body>
 </html>`;
 }
 
-// ── Ticket en texto plano (para impresión térmica vía RawBT) ────
-const RAWBT_ANCHO = 32; // columnas típicas de impresora térmica 58mm
-
-// ── Comandos ESC/POS ─────────────────────────────────────────────
-const ESC = "\x1B";
-const GS  = "\x1D";
-const ESC_INIT     = `${ESC}@`;     // Inicializa la impresora
-const ESC_BOLD_ON  = `${ESC}E\x01`; // Modo enfatizado (negrita) ON
-const ESC_BOLD_OFF = `${ESC}E\x00`; // Modo enfatizado (negrita) OFF
-const GS_NORMAL     = `${GS}!\x00`; // Tamaño normal
-
-function centrar(texto, ancho = RAWBT_ANCHO) {
-  const t = String(texto ?? "");
-  if (t.length >= ancho) return t.slice(0, ancho);
-  const espacios = ancho - t.length;
-  const izq = Math.floor(espacios / 2);
-  return " ".repeat(izq) + t;
-}
-
-function linea(ancho = RAWBT_ANCHO, car = "-") {
-  return car.repeat(ancho);
-}
-
-function filaDosCol(izq, der, ancho = RAWBT_ANCHO) {
-  const i = String(izq ?? "");
-  const d = String(der ?? "");
-  const espacio = Math.max(1, ancho - i.length - d.length);
-  return i + " ".repeat(espacio) + d;
-}
-
-function generarTicketTexto(comprobante) {
-  const {
-    tipo_documento   = "NOTA_VENTA",
-    serie            = "NV01",
-    numero_documento = "00000001",
-    fecha,
-    clienteNombre    = "CLIENTES VARIOS",
-    clienteDoc       = "",
-    clienteDireccion = "",
-    vendedor         = "",
-    items            = [],
-    subtotal         = 0,
-    descuento        = 0,
-    igv              = 0,
-    total            = 0,
-    pagos            = [],
-    forma_pago       = "Efectivo",
-    observaciones    = "",
-  } = comprobante;
-
-  const esNota   = tipo_documento === "NOTA_VENTA";
-  const esBoleta = tipo_documento === "BOLETA";
-  const titulo   = esNota ? "NOTA DE VENTA" : esBoleta ? "BOLETA DE VENTA" : "FACTURA ELECTRÓNICA";
-  const numeroCompleto = `${serie}-${String(numero_documento).padStart(8, "0")}`;
-
-  const pad2 = (n) => String(n).padStart(2, "0");
-  function parsarFecha(f) {
-    if (!f) return new Date();
-    if (f instanceof Date) return isNaN(f) ? new Date() : f;
-    const matchLocal = String(f).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})/);
-    if (matchLocal) {
-      const [, dia, mes, anio, h, m] = matchLocal;
-      return new Date(Number(anio), Number(mes) - 1, Number(dia), Number(h), Number(m));
-    }
-    const d = new Date(f);
-    return isNaN(d.getTime()) ? new Date() : d;
-  }
-  const d = parsarFecha(fecha);
-  const fechaStr = `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
-  const horaStr  = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-
-  const listaPagos  = pagos.length > 0 ? pagos : [{ tipo: forma_pago, monto: total }];
-  const totalPagado = listaPagos.reduce((a, p) => a + Number(p.monto || 0), 0);
-  const vuelto      = Math.max(0, totalPagado - Number(total));
-
-  const lineasItems = items.flatMap((item) => {
-    const cant    = Number(item.cantidad || 0);
-    const precio  = Number(item.precio || 0);
-    const tot     = Number(item.total ?? cant * precio);
-    const cantStr = cant % 1 === 0 ? String(cant) : cant.toFixed(2);
-    const und     = (item.presentacion || "UND").toUpperCase();
-    const desc    = (item.nombre || "").toUpperCase();
-    return [
-      desc,
-      filaDosCol(`  ${cantStr} ${und} x S/${f2(precio)}`, `S/${f2(tot)}`),
-    ];
-  });
-
-  const hayDescuento = Number(descuento) > 0;
-  const hayIgv       = !esNota && Number(igv) > 0;
-
-  const lineas = [
-    centrar(EMPRESA.nombre),
-    centrar(`RUC: ${EMPRESA.ruc}`),
-    centrar(EMPRESA.direccion),
-    centrar(EMPRESA.ciudad),
-    linea(),
-    centrar(titulo),
-    centrar(numeroCompleto),
-    linea(),
-    `Fecha  : ${fechaStr}  Hora: ${horaStr}`,
-    `Cliente: ${(clienteNombre || "CLIENTES VARIOS").toUpperCase()}`,
-    clienteDoc ? `Doc.   : ${clienteDoc}` : null,
-    clienteDireccion ? `Dir.   : ${clienteDireccion}` : null,
-    vendedor ? `Vend.  : ${vendedor}` : null,
-    linea(),
-    "Descripción",
-    filaDosCol("Cant Und x P.Unit", "Total"),
-    linea(),
-    ...lineasItems,
-    linea(),
-    filaDosCol("Subtotal", `S/ ${f2(subtotal)}`),
-    hayDescuento ? filaDosCol("Descuento", `- S/ ${f2(descuento)}`) : null,
-    hayIgv ? filaDosCol("IGV (18%)", `S/ ${f2(igv)}`) : null,
-    linea(),
-    filaDosCol("TOTAL A PAGAR", `S/ ${f2(total)}`),
-    linea(),
-    ...listaPagos.map((p) => filaDosCol(p.tipo || forma_pago, `S/ ${f2(p.monto)}`)),
-    vuelto > 0 ? filaDosCol("Vuelto", `S/ ${f2(vuelto)}`) : null,
-    observaciones ? linea() : null,
-    observaciones ? observaciones : null,
-    linea(),
-    centrar("¡Gracias por su compra!"),
-    centrar("Vuelva pronto."),
-    "",
-    "",
-  ].filter((l) => l !== null);
-
-  return lineas.join("\n");
-}
+// Ancho de renderizado del ticket en px (coincide con el max-width del CSS).
+// RawBT escala la imagen recibida al ancho físico del papel (58mm u 80mm).
+const RAWBT_ANCHO_PX = 420;
 
 /**
  * Imprime el comprobante en una impresora térmica Bluetooth vía la app
- * RawBT (Android), usando el esquema de intent que RawBT expone para
- * recibir texto desde el navegador. Si RawBT no está instalada, Android
- * ofrece instalarla desde Play Store automáticamente.
+ * RawBT (Android). RawBT no soporta imprimir HTML directamente (con
+ * type=text/html solo lo abre en el navegador), así que el ticket se
+ * renderiza a una imagen PNG con html2canvas (manteniendo tabla,
+ * tipografía y negritas del diseño HTML) y se envía como imagen —
+ * formato que RawBT sí imprime tal cual se ve. Si RawBT no está
+ * instalada, Android ofrece instalarla desde Play Store automáticamente.
  */
-export function imprimirRawBT(comprobante) {
-  const texto = generarTicketTexto(comprobante);
-  // Sin margen superior y tamaño normal (1x1): solo negrita (ESC E 1)
-  // para que el cabezal imprima oscuro sin agrandar la letra.
-  const cuerpo = `${ESC_INIT}${GS_NORMAL}${ESC_BOLD_ON}${texto}${ESC_BOLD_OFF}${GS_NORMAL}`;
-  const intentUrl = `intent:${encodeURIComponent(cuerpo)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
-  window.location.href = intentUrl;
+export async function imprimirRawBT(comprobante) {
+  const html = generarTicketHTML(comprobante, { fontFamily: "Arial, Helvetica, sans-serif" });
+
+  // Se renderiza dentro de un iframe aislado (no un <div> del documento
+  // principal) para que los estilos del ticket no se filtren a la app.
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-9999px";
+  iframe.style.top = "0";
+  iframe.style.width = `${RAWBT_ANCHO_PX}px`;
+  iframe.style.height = "1px";
+  iframe.style.border = "none";
+  document.body.appendChild(iframe);
+
+  try {
+    await new Promise((resolve) => {
+      iframe.onload = resolve;
+      iframe.srcdoc = html;
+    });
+
+    const canvas = await html2canvas(iframe.contentDocument.body, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      width: RAWBT_ANCHO_PX,
+      windowWidth: RAWBT_ANCHO_PX,
+    });
+    const base64 = canvas.toDataURL("image/png").split(",")[1];
+    const intentUrl = `intent:data:image/png;base64,${base64}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+    window.location.href = intentUrl;
+  } finally {
+    document.body.removeChild(iframe);
+  }
 }
 
 /** Abre ventana emergente e imprime el ticket. */
