@@ -3,7 +3,7 @@ import { crearVenta, getProductos, getVentas, anularVenta, eliminarVenta, getCli
 import { useConsultaDoc } from "../hooks/useConsultaDoc";
 import { getEmpresa } from "../services/empresa";
 import { cantidadEnUnidadesBase, stockAmigable } from "../utils/stock";
-import { imprimirNotaVenta, generarComprobanteHTML } from "../components/NotaVenta";
+import { imprimirNotaVenta, generarComprobanteHTML, imprimirRawBT } from "../components/NotaVenta";
 import { imprimirFactura, descargarFacturaHTML } from "../components/factura/Factura";
 
 const esComprobanteA4 = (tipoDocumento) => tipoDocumento === "BOLETA" || tipoDocumento === "FACTURA";
@@ -398,6 +398,12 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onDescar
           </button>
           <button type="button" className="btn-export" onClick={() => onDescargar(comprobante)}>
             Descargar
+          </button>
+          <button type="button" className="btn-export"
+            style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}
+            onClick={() => imprimirRawBT(comprobante)}
+            title="Imprimir en impresora térmica Bluetooth vía la app RawBT">
+            📱 Bluetooth (RawBT)
           </button>
           <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={onCerrar}>Cerrar</button>
         </div>
