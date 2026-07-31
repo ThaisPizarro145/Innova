@@ -25,6 +25,35 @@ function descargarComprobanteDirecto(comp) {
     formato: esA4 ? "a4" : "ticket",
   });
 }
+/**
+ * Único punto de armado del comprobante que reciben imprimirNotaVenta/imprimirRawBT.
+ * Acepta tanto el comprobante recién creado (camelCase: clienteNombre, clienteDni,
+ * clienteDireccion, items...) como una fila de venta del historial (snake_case:
+ * cliente_nombre, cliente_dni...) + sus items ya mapeados. Al ser la única función
+ * que arma este objeto, la impresión al vender y la reimpresión desde el historial
+ * quedan garantizadas idénticas: mismo componente, mismos nombres de campo.
+ */
+function comprobanteParaImpresion(datos) {
+  return {
+    tipo_documento: datos.tipo_documento || "NOTA_VENTA",
+    serie: datos.serie || SERIES[datos.tipo_documento] || "NV01",
+    numero_documento: datos.numero_documento || String(datos.id || "").padStart(8, "0"),
+    fecha: datos.fecha,
+    clienteNombre: datos.clienteNombre || datos.cliente_nombre || "Cliente general",
+    clienteDoc: datos.clienteDoc || datos.clienteDni || datos.cliente_dni || datos.cliente_ruc || "",
+    clienteDireccion: datos.clienteDireccion || "",
+    // No se persiste por venta en el backend (es solo config global) — se omite
+    // siempre para que la venta y la reimpresión nunca difieran en este campo.
+    vendedor: "",
+    items: datos.items || [],
+    subtotal: datos.subtotal ?? datos.total,
+    descuento: datos.descuento || 0,
+    total: datos.total,
+    forma_pago: datos.forma_pago,
+    pagos: datos.pagos || [],
+  };
+}
+
 const formasPago = ["Efectivo", "Yape", "Plin", "Tarjeta", "Transferencia", "Crédito"];
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
 
@@ -316,7 +345,7 @@ function ModalSelectorDocumento({ carrito, subtotal, igv, total, incluyeIgv, cli
 }
 
 /* ── Modal comprobante (muestra voucher luego de registrar) ── */
-function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onDescargar, onCerrar }) {
+function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onImprimirRawBT, onDescargar, onCerrar }) {
   const tipo = TIPOS_COMPROBANTE.find((t) => t.value === comprobante.tipo_documento) || TIPOS_COMPROBANTE[0];
   const serie = comprobante.serie || tipo.serial;
   const numero = comprobante.numero_documento || "00000001";
@@ -386,7 +415,7 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onDescar
             if (comprobante.tipo_documento === "NOTA_VENTA") {
               onImprimirTermico(comprobante);
             } else {
-              onImprimir(comprobante.tipo_documento, `${serie}-${numero}`);
+              onImprimir(comprobante);
             }
           }}>
             Imprimir
@@ -396,7 +425,7 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onDescar
           </button>
           <button type="button" className="btn-export"
             style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}
-            onClick={() => imprimirRawBT(comprobante)}
+            onClick={() => onImprimirRawBT(comprobante)}
             title="Imprimir en impresora térmica Bluetooth vía la app RawBT">
             📱 Bluetooth (RawBT)
           </button>
@@ -634,14 +663,14 @@ function Ventas() {
     cargarVentas().catch(() => {});
   };
 
-  /* ── Imprimir comprobante (Boleta/Factura → A4; ver ModalComprobante) ── */
-  const imprimirComprobante = (tipoDoc, serie) => {
-    if (!comprobante) return;
+  /* ── Imprimir comprobante (Boleta/Factura → A4; ver ModalComprobante) ──
+   * serie/numero_documento vienen ya asignados por el backend en `comp`
+   * (correlativo real, único e incremental) — no se recalculan aquí. */
+  const imprimirComprobante = (comp) => {
+    if (!comp) return;
     imprimirFactura({
-      ...comprobante,
-      tipo_documento: tipoDoc,
-      serie,
-      clienteDoc: comprobante.clienteDni || "",
+      ...comp,
+      clienteDoc: comp.clienteDni || "",
     });
   };
 
@@ -673,12 +702,8 @@ function Ventas() {
       {mostrarVoucher && comprobante && (
         <ModalComprobante comprobante={comprobante}
           onImprimir={imprimirComprobante}
-          onImprimirTermico={(comp) => imprimirNotaVenta({
-            ...comp,
-            vendedor: "",
-            clienteDoc: comp.clienteDni || "",
-            clienteDireccion: comp.clienteDireccion || "",
-          })}
+          onImprimirTermico={(comp) => imprimirNotaVenta(comprobanteParaImpresion(comp))}
+          onImprimirRawBT={(comp) => imprimirRawBT(comprobanteParaImpresion(comp))}
           onDescargar={descargarComprobante}
           onCerrar={() => setMostrarVoucher(false)} />
       )}
@@ -941,23 +966,8 @@ function itemsDesdeVenta(venta, productos = []) {
 
 function imprimirVentaHistorial(venta, productos = []) {
   if (venta.tipo_documento === "NOTA_VENTA" || !venta.tipo_documento) {
-    // Ticket térmico para Nota de Venta
-    imprimirNotaVenta({
-      tipo_documento: venta.tipo_documento || "NOTA_VENTA",
-      serie: venta.serie || "NV01",
-      numero_documento: venta.numero_documento || String(venta.id).padStart(8, "0"),
-      fecha: venta.fecha,
-      clienteNombre: venta.cliente_nombre || "Cliente general",
-      clienteDoc: venta.cliente_dni || venta.cliente_ruc || "",
-      clienteDireccion: "",
-      vendedor: "",
-      items: itemsDesdeVenta(venta, productos),
-      subtotal: venta.subtotal || venta.total,
-      descuento: venta.descuento || 0,
-      total: venta.total,
-      forma_pago: venta.forma_pago,
-      pagos: [],
-    });
+    // Ticket térmico para Nota de Venta — mismo armado que al vender (comprobanteParaImpresion)
+    imprimirNotaVenta(comprobanteParaImpresion({ ...venta, items: itemsDesdeVenta(venta, productos) }));
     return;
   }
   // Boleta / Factura → comprobante A4
@@ -977,22 +987,8 @@ function imprimirVentaHistorial(venta, productos = []) {
 }
 
 function imprimirVentaHistorialRawBT(venta, productos = []) {
-  imprimirRawBT({
-    tipo_documento: venta.tipo_documento || "NOTA_VENTA",
-    serie: venta.serie || "NV01",
-    numero_documento: venta.numero_documento || String(venta.id).padStart(8, "0"),
-    fecha: venta.fecha,
-    clienteNombre: venta.cliente_nombre || "Cliente general",
-    clienteDoc: venta.cliente_dni || venta.cliente_ruc || "",
-    clienteDireccion: "",
-    vendedor: "",
-    items: itemsDesdeVenta(venta, productos),
-    subtotal: venta.subtotal || venta.total,
-    descuento: venta.descuento || 0,
-    total: venta.total,
-    forma_pago: venta.forma_pago,
-    pagos: [],
-  });
+  // Mismo armado que al vender (comprobanteParaImpresion) — impresión y reimpresión idénticas.
+  imprimirRawBT(comprobanteParaImpresion({ ...venta, items: itemsDesdeVenta(venta, productos) }));
 }
 
 function descargarVentaHistorial(venta, productos = []) {
