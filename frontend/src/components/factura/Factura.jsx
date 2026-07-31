@@ -5,7 +5,7 @@
  * Solo HTML + CSS puro (sin librerías), pensado para window.print() y
  * para descargarse como un único archivo HTML autocontenido.
  */
-import { EMPRESA } from "../NotaVenta";
+import { EMPRESA, normalizarFechaUTC } from "../NotaVenta";
 import facturaCss from "./Factura.css?raw";
 
 const f2 = (v) => Number(v || 0).toFixed(2);
@@ -84,8 +84,7 @@ function parsarFecha(f) {
     const [, dia, mes, anio, h, m] = matchLocal;
     return new Date(Number(anio), Number(mes) - 1, Number(dia), Number(h), Number(m));
   }
-  const d = new Date(f);
-  return isNaN(d.getTime()) ? new Date() : d;
+  return normalizarFechaUTC(f);
 }
 
 function formatearFecha(f) {

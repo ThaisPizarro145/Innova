@@ -3,7 +3,7 @@ import { crearVenta, getProductos, getVentas, anularVenta, eliminarVenta, getCli
 import { useConsultaDoc } from "../hooks/useConsultaDoc";
 import { getEmpresa } from "../services/empresa";
 import { cantidadEnUnidadesBase, stockAmigable } from "../utils/stock";
-import { imprimirNotaVenta, generarComprobanteHTML, imprimirRawBT } from "../components/NotaVenta";
+import { imprimirNotaVenta, generarComprobanteHTML, imprimirRawBT, normalizarFechaUTC } from "../components/NotaVenta";
 import { imprimirFactura, descargarFacturaHTML } from "../components/factura/Factura";
 import { descargarHTMLComoPDF } from "../utils/pdf";
 
@@ -915,7 +915,7 @@ function Ventas() {
                     : ventas.map((v) => (
                       <tr key={v.id}>
                         <td>{v.id}</td>
-                        <td>{new Date(v.fecha).toLocaleString()}</td>
+                        <td>{normalizarFechaUTC(v.fecha).toLocaleString()}</td>
                         <td>{v.cliente_nombre || v.cliente_id || "-"}</td>
                         <td>{fmt(v.total)}</td>
                         <td><span className={`estado-badge ${v.estado === "ANULADA" ? "estado-anulada" : "estado-completada"}`}>{v.estado}</span></td>
@@ -997,7 +997,7 @@ function descargarVentaHistorial(venta, productos = []) {
     serie: venta.serie,
     numero_documento: venta.numero_documento || String(venta.id).padStart(8, "0"),
     id: venta.id,
-    fecha: new Date(venta.fecha).toLocaleString(),
+    fecha: normalizarFechaUTC(venta.fecha).toLocaleString(),
     clienteNombre: venta.cliente_nombre || "Cliente general",
     clienteDni: venta.cliente_dni || venta.cliente_ruc || "",
     forma_pago: venta.forma_pago,

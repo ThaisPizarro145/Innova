@@ -16,6 +16,26 @@ export const EMPRESA = {
 
 const f2 = (v) => Number(v || 0).toFixed(2);
 
+/**
+ * Interpreta una fecha devuelta por el backend como Date correcto en hora
+ * local del navegador. El backend guarda `fecha` en UTC (datetime.utcnow())
+ * y lo serializa SIN sufijo de zona horaria (ej. "2026-07-31T16:40:09.75").
+ * Un `new Date(...)` directo sobre ese string lo interpreta como si ya
+ * fuera hora LOCAL (no UTC), adelantando la hora mostrada según el huso
+ * horario del usuario (en Perú, +5h) — por eso reimprimir desde el
+ * historial mostraba una hora distinta a la de la impresión al vender.
+ * Forzamos el sufijo "Z" solo en ese caso para que se interprete como UTC
+ * y el navegador la convierta a hora local correctamente.
+ */
+export function normalizarFechaUTC(f) {
+  if (!f) return new Date();
+  if (f instanceof Date) return isNaN(f) ? new Date() : f;
+  const s = String(f);
+  const esIsoSinZona = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s) && !/(Z|[+-]\d{2}:?\d{2})$/.test(s);
+  const d = new Date(esIsoSinZona ? `${s}Z` : s);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
 /** Arma los estilos y el cuerpo HTML del ticket, sin el envoltorio <html>/<head>/<body>. */
 function construirTicket(comprobante, opciones = {}) {
   const {
@@ -71,9 +91,8 @@ function construirTicket(comprobante, opciones = {}) {
       const [, dia, mes, anio, h, m] = matchLocal;
       return new Date(Number(anio), Number(mes)-1, Number(dia), Number(h), Number(m));
     }
-    // ISO u otro formato estándar
-    const d = new Date(f);
-    return isNaN(d.getTime()) ? new Date() : d;
+    // ISO u otro formato estándar (fecha del backend, en UTC)
+    return normalizarFechaUTC(f);
   }
 
   const d = parsarFecha(fecha);
