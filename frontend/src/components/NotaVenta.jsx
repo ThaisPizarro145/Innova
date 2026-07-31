@@ -316,9 +316,6 @@ function construirTicket(comprobante, opciones = {}) {
   `;
 
   const cuerpo = `
-  <!-- ═══ MARGEN SUPERIOR ══════════════════════════════ -->
-  <br><br><br><br><br><br><br>
-
   <!-- ═══ ENCABEZADO ═══════════════════════════════════ -->
   <div class="emp-nombre">${EMPRESA.nombre}</div>
   <div class="emp-info">
