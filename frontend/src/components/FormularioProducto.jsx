@@ -223,6 +223,10 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
       setMensaje("El nombre es obligatorio.");
       return;
     }
+    if (!form.categoria) {
+      setMensaje("Selecciona una categoría para el producto.");
+      return;
+    }
     if (form.fecha_vencimiento?.trim() && !fechaDDMMAAAAaISO(form.fecha_vencimiento)) {
       setMensaje("La fecha de vencimiento debe tener el formato dd/mm/aaaa.");
       return;
@@ -328,7 +332,7 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
         <div className="formulario-grid">
           {/* ── PASO 1: Categoría ── */}
           <div className="campo-full">
-            <label style={{ fontWeight: 700, color: "#334155" }}>1. Categoría del producto</label>
+            <label style={{ fontWeight: 700, color: "#334155" }}>1. Categoría del producto *</label>
             {cargandoCategorias ? (
               <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Cargando categorías...</p>
             ) : (

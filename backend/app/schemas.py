@@ -245,7 +245,7 @@ class ProductoBase(BaseModel):
 
 
 class ProductoCreate(ProductoBase):
-    pass
+    categoria: str = Field(..., min_length=1)
 
 
 class ProductoUpdate(BaseModel):
