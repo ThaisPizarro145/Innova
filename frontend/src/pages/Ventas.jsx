@@ -21,7 +21,7 @@ function descargarComprobanteDirecto(comp) {
   const esA4 = esComprobanteA4(comp.tipo_documento);
   const html = esA4 ? descargarFacturaHTML(datos) : generarComprobanteHTML(datos);
   descargarHTMLComoPDF(html, `comprobante-${numeroCompleto}`, {
-    anchoPx: esA4 ? 800 : 420,
+    anchoPx: esA4 ? 800 : 302,
     formato: esA4 ? "a4" : "ticket",
   });
 }
@@ -42,9 +42,10 @@ function comprobanteParaImpresion(datos) {
     clienteNombre: datos.clienteNombre || datos.cliente_nombre || "Cliente general",
     clienteDoc: datos.clienteDoc || datos.clienteDni || datos.cliente_dni || datos.cliente_ruc || "",
     clienteDireccion: datos.clienteDireccion || "",
-    // No se persiste por venta en el backend (es solo config global) — se omite
-    // siempre para que la venta y la reimpresión nunca difieran en este campo.
-    vendedor: "",
+    // No se persiste por venta en el backend (es config global de ⚙ Configuración)
+    // — se omite aquí para que NotaVenta.jsx use siempre el mismo valor
+    // (datosEmpresa().vendedor), garantizando que la venta y la reimpresión
+    // muestren exactamente el mismo vendedor.
     items: datos.items || [],
     subtotal: datos.subtotal ?? datos.total,
     descuento: datos.descuento || 0,

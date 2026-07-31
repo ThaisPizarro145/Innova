@@ -16,6 +16,7 @@ export function datosEmpresa() {
     ciudad:    [e.distrito, e.provincia || e.departamento].filter(Boolean).join(" - "),
     correo:    e.email || "",
     celular:   e.telefono || "",
+    vendedor:  e.vendedor || "",
   };
 }
 
@@ -44,9 +45,9 @@ export function normalizarFechaUTC(f) {
 /** Arma los estilos y el cuerpo HTML del ticket, sin el envoltorio <html>/<head>/<body>. */
 function construirTicket(comprobante, opciones = {}) {
   const {
-    fontFamily = "'Courier New', Courier, monospace",
+    fontFamily = "Arial, Helvetica, sans-serif",
     escala     = 1,   // multiplicador de todos los font-size del ticket
-    pesoBase   = 700, // font-weight del cuerpo del ticket
+    pesoBase   = 400, // font-weight del cuerpo del ticket
   } = opciones;
   const t = (px) => `${Math.round(px * escala * 10) / 10}px`;
   const EMPRESA = datosEmpresa();
@@ -55,10 +56,9 @@ function construirTicket(comprobante, opciones = {}) {
     serie            = "NV01",
     numero_documento = "00000001",
     fecha,
-    clienteNombre    = "CLIENTES VARIOS",
-    clienteDoc       = "",
+    clienteNombre    = "Cliente general",
     clienteDireccion = "",
-    vendedor         = "",
+    vendedor         = EMPRESA.vendedor || "",
     caja             = "",
     items            = [],
     subtotal         = 0,
@@ -102,24 +102,21 @@ function construirTicket(comprobante, opciones = {}) {
   }
 
   const d = parsarFecha(fecha);
-  const fechaStr = `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
-  const horaStr  = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const fechaStr = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 
   // ── Pagos ─────────────────────────────────────────────────
   const listaPagos  = pagos.length > 0 ? pagos : [{ tipo: forma_pago, monto: total }];
   const totalPagado = listaPagos.reduce((a, p) => a + Number(p.monto || 0), 0);
   const vuelto      = Math.max(0, totalPagado - Number(total));
 
-  // ── Datos del cliente ─────────────────────────────────────
+  // ── Datos del comprobante (mismo formato/orden que el voucher físico) ─
   const camposCliente = [
-    ["Fecha",      fechaStr],
-    ["Hora",       horaStr],
-    ["Cliente",    (clienteNombre || "CLIENTES VARIOS").toUpperCase()],
-    clienteDoc       ? ["Documento",  clienteDoc]       : null,
-    clienteDireccion ? ["Dirección",  clienteDireccion] : null,
-    vendedor         ? ["Vendedor",   vendedor]          : null,
-    caja             ? ["Caja",       caja]              : null,
-    numero_operacion ? ["Operación",  numero_operacion]  : null,
+    ["F. Emisión", fechaStr],
+    ["Cliente", clienteNombre || "Cliente general"],
+    ["Dirección", clienteDireccion],
+    ["Vendedor", vendedor],
+    caja             ? ["Caja", caja]                  : null,
+    numero_operacion ? ["Operación", numero_operacion] : null,
   ].filter(Boolean);
 
   const datosClienteHTML = camposCliente.map(([etq, val]) => `
@@ -136,210 +133,195 @@ function construirTicket(comprobante, opciones = {}) {
     const tot     = Number(item.total ?? cant * precio);
     const cantStr = cant % 1 === 0 ? String(cant) : cant.toFixed(2);
     const und     = (item.presentacion || "UND").toUpperCase();
-    const desc    = (item.nombre || "").toUpperCase();
-    const undTag  = und !== "UND" ? ` <span class="d-und-tag">(${und})</span>` : "";
+    const desc    = item.nombre || "";
     return `
       <tr class="det-row">
         <td class="d-cant">${cantStr}</td>
-        <td class="d-desc">${desc}${undTag}</td>
-        <td class="d-tot">S/${f2(tot)}</td>
+        <td class="d-und">${und}</td>
+        <td class="d-desc">${desc}</td>
+        <td class="d-punit">${f2(precio)}</td>
+        <td class="d-tot">${f2(tot)}</td>
       </tr>`;
   }).join("");
 
   // ── Totales ───────────────────────────────────────────────
   const hayDescuento = Number(descuento) > 0;
   const hayIgv       = !esNota && Number(igv) > 0;
+  const hayDesglose  = hayDescuento || hayIgv;
 
   const totalesRows = [
-    `<tr class="t-row"><td>Subtotal</td><td>S/ ${f2(subtotal)}</td></tr>`,
+    hayDesglose  ? `<tr class="t-row"><td>Subtotal</td><td>S/ ${f2(subtotal)}</td></tr>`     : "",
     hayDescuento ? `<tr class="t-row"><td>Descuento</td><td>- S/ ${f2(descuento)}</td></tr>` : "",
-    hayIgv       ? `<tr class="t-row"><td>IGV (18%)</td><td>S/ ${f2(igv)}</td></tr>`        : "",
+    hayIgv       ? `<tr class="t-row"><td>IGV (18%)</td><td>S/ ${f2(igv)}</td></tr>`         : "",
   ].join("");
 
   // ── Pagos ─────────────────────────────────────────────────
-  const pagosRows = listaPagos.map((p) =>
-    `<tr class="t-row"><td>${p.tipo || forma_pago}</td><td>S/ ${f2(p.monto)}</td></tr>`
+  const pagosHTML = listaPagos.map((p) =>
+    `<div class="pago-item">${fechaStr} - ${p.tipo || forma_pago} - S/ ${f2(p.monto)}</div>`
   ).join("");
 
-  const vueltoRow = vuelto > 0
-    ? `<tr class="t-row t-vuelto"><td>Vuelto</td><td>S/ ${f2(vuelto)}</td></tr>`
+  const vueltoHTML = vuelto > 0
+    ? `<div class="pago-item">Vuelto - S/ ${f2(vuelto)}</div>`
     : "";
 
   const estilos = `
     /* ── Reset ───────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Página de impresión ─────────────────────────── */
+    /* ── Página de impresión (papel térmico 80mm) ─────── */
     @page {
       size: 80mm auto;
-      margin: 3mm 1.5mm;
+      margin: 0;
     }
 
-    /* ── Body ────────────────────────────────────────── */
+    /* ── Body / contenedor principal ──────────────────── */
     body {
       font-family: ${fontFamily};
       font-size: ${t(18)};
       font-weight: ${pesoBase};
-      line-height: 1.55;
+      line-height: 1.4;
       color: #000;
       background: #fff;
-      width: 100%;
-      max-width: 420px;
+      width: 80mm;
+      max-width: 80mm;
       margin: 0 auto;
-      padding: 4px 3px 14px 3px;
+      padding: 4mm;
+      box-sizing: border-box;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      -webkit-font-smoothing: none;
     }
 
-    /* ── Encabezado empresa ──────────────────────────── */
+    /* ── Encabezado empresa (todo centrado) ───────────── */
     .emp-nombre {
-      font-size: ${t(19)};
-      font-weight: 900;
-      text-align: center;
-      letter-spacing: 0.4px;
-      line-height: 1.3;
-    }
-    .emp-info {
-      font-size: ${t(14.5)};
+      font-size: ${t(22)};
       font-weight: 700;
       text-align: center;
-      line-height: 1.6;
-      margin-top: 3px;
+      line-height: 1.25;
+      margin-bottom: 2px;
     }
-
-    /* ── Separadores ─────────────────────────────────── */
-    .sep       { border: none; border-top: 1.5px dashed #000; margin: 6px 0; }
-    .sep-fuerte{ border: none; border-top: 3px solid  #000; margin: 6px 0; }
-
-    /* ── Tipo de comprobante ─────────────────────────── */
-    .comp-titulo {
-      font-size: ${t(21)};
-      font-weight: 900;
+    .emp-linea {
+      font-size: ${t(18)};
       text-align: center;
-      letter-spacing: 2.5px;
-      margin: 5px 0 3px 0;
+      line-height: 1.35;
+    }
+    .emp-correo { font-size: ${t(17)}; }
+
+    /* ── Separadores (línea fina, como el voucher físico) ─ */
+    .sep { border: none; border-top: 1px solid #000; margin: 4px 0; }
+
+    /* ── Tipo de comprobante (centrado) ───────────────── */
+    .comp-titulo {
+      font-size: ${t(26)};
+      font-weight: 700;
+      text-align: center;
+      margin: 6px 0 2px 0;
     }
     .comp-numero {
-      font-size: ${t(18)};
-      font-weight: 800;
+      font-size: ${t(24)};
       text-align: center;
-      letter-spacing: 0.5px;
     }
 
-    /* ── Tabla datos cliente ─────────────────────────── */
+    /* ── Datos del comprobante (F. Emisión, Cliente, etc.) ─ */
     .tbl-cliente {
       width: 100%;
       border-collapse: collapse;
-      font-size: ${t(15.5)};
-      line-height: 1.7;
+      font-size: ${t(18)};
+      line-height: 1.5;
+      margin-top: 6px;
+      table-layout: fixed;
     }
-    .c-etq { font-weight: 900; white-space: nowrap; padding-right: 4px; width: 92px; }
-    .c-sep { padding: 0 2px; width: 8px; }
-    .c-val { font-weight: 700; word-break: break-word; }
+    .c-etq { width: 46%; padding-right: 4px; vertical-align: top; overflow-wrap: anywhere; }
+    .c-sep { width: 4%;  padding: 0 2px; vertical-align: top; }
+    .c-val { width: 50%; vertical-align: top; overflow-wrap: anywhere; }
 
-    /* ── Tabla detalle productos ─────────────────────── */
+    /* ── Tabla detalle productos ───────────────────────── */
     .tbl-det {
       width: 100%;
       border-collapse: collapse;
-      font-size: ${t(16)};
+      font-size: ${t(12)};
+      table-layout: fixed;
     }
     .det-thead th {
-      font-weight: 900;
-      font-size: ${t(15)};
-      padding: 2px 2px 4px 2px;
-      border-bottom: 2px solid #000;
+      font-weight: 700;
+      font-size: ${t(12)};
+      text-align: left;
+      padding: 2px 1px 4px 1px;
+      border-bottom: 1px solid #000;
+      white-space: nowrap;
     }
-    .d-cant { text-align: left;  width: 32px;  padding-right: 6px; white-space: nowrap; }
-    .d-desc { text-align: left;  word-break: break-word; padding-right: 6px; font-weight: 800; }
-    .d-tot  { text-align: right; width: 96px;  white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .d-cant  { width: 12%; }
+    .d-und   { width: 14%; }
+    .d-desc  { width: 36%; }
+    .d-punit { width: 19%; }
+    .d-tot   { width: 19%; }
+    th.d-punit, th.d-tot, td.d-punit, td.d-tot { text-align: right; }
+    .det-row td {
+      padding: 3px 1px;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    td.d-cant, td.d-und, td.d-punit, td.d-tot { white-space: nowrap; }
+    td.d-punit, td.d-tot { font-variant-numeric: tabular-nums; }
 
-    .det-row td { padding: 4px 2px; vertical-align: top; }
-    .d-und-tag { font-weight: 600; font-size: 0.72em; }
-
-    /* ── Tabla totales ───────────────────────────────── */
+    /* ── Tabla totales (subtotal / descuento / igv) ────── */
     .tbl-tot {
       width: 100%;
       border-collapse: collapse;
-      font-size: ${t(15)};
+      font-size: ${t(18)};
     }
-    .t-row td { padding: 2px 2px; line-height: 1.65; font-weight: 700; }
+    .t-row td { padding: 2px; line-height: 1.5; }
     .t-row td:first-child { text-align: left; }
     .t-row td:last-child  { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-    /* Vuelto */
-    .t-vuelto td { font-weight: 900; }
-
-    /* ── Bloque TOTAL A PAGAR (destacado) ────────────── */
-    .total-block {
-      text-align: center;
-      padding: 4px 0 2px 0;
-    }
-    .total-label {
-      font-size: ${t(17)};
-      font-weight: 900;
-      letter-spacing: 1.5px;
-      margin-bottom: 3px;
-    }
-    .total-monto {
-      font-size: ${t(30)};
-      font-weight: 900;
-      letter-spacing: 0.5px;
-    }
-
-    /* ── Sección forma de pago ───────────────────────── */
-    .pagos-titulo {
-      font-size: ${t(17)};
-      font-weight: 900;
-      text-align: center;
-      margin: 4px 0 2px 0;
-      letter-spacing: 0.5px;
-    }
-    .pagos-fecha {
-      font-size: ${t(14)};
+    /* ── Total a pagar (destacado) ─────────────────────── */
+    .total-final {
+      display: flex;
+      justify-content: space-between;
+      font-size: ${t(22)};
       font-weight: 700;
-      text-align: center;
-      margin-bottom: 3px;
+      padding: 3px 2px;
     }
 
-    /* ── Pie ─────────────────────────────────────────── */
+    /* ── Sección Pagos ──────────────────────────────────── */
+    .pagos-titulo {
+      font-size: ${t(18)};
+      margin: 5px 0 2px 0;
+    }
+    .pago-item {
+      font-size: ${t(14)};
+      line-height: 1.5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Pie ────────────────────────────────────────────── */
     .pie {
       text-align: center;
-      font-size: ${t(14.5)};
-      font-weight: 700;
-      line-height: 1.75;
-      margin-top: 4px;
-    }
-    .pie-gracias {
-      font-size: ${t(19)};
-      font-weight: 900;
+      font-size: ${t(18)};
+      line-height: 1.5;
+      margin-top: 6px;
     }
     .pie-electronico {
-      font-size: ${t(13)};
+      font-size: ${t(14)};
       font-style: italic;
       margin-top: 4px;
     }
   `;
 
   const cuerpo = `
-  <!-- ═══ ENCABEZADO ═══════════════════════════════════ -->
+  <!-- ═══ ENCABEZADO (todo centrado) ═══════════════════ -->
   <div class="emp-nombre">${EMPRESA.nombre}</div>
-  <div class="emp-info">
-    RUC: ${EMPRESA.ruc}<br>
-    Dirección: ${EMPRESA.direccion}, ${EMPRESA.ciudad}<br>
-    Correo: ${EMPRESA.correo}<br>
-    Teléfono: ${EMPRESA.celular}
-  </div>
-
-  <hr class="sep">
+  <div class="emp-linea">RUC: ${EMPRESA.ruc}</div>
+  <div class="emp-linea">Dirección: ${EMPRESA.direccion}${EMPRESA.ciudad ? `, ${EMPRESA.ciudad}` : ""}</div>
+  <div class="emp-linea emp-correo">Correo: ${EMPRESA.correo}</div>
+  <div class="emp-linea">Teléfono: ${EMPRESA.celular}</div>
 
   <!-- ═══ TIPO DE COMPROBANTE ══════════════════════════ -->
   <div class="comp-titulo">${titulo}</div>
   <div class="comp-numero">${numeroCompleto}</div>
 
-  <hr class="sep">
-
-  <!-- ═══ DATOS DEL CLIENTE ════════════════════════════ -->
+  <!-- ═══ DATOS DEL COMPROBANTE ════════════════════════ -->
   <table class="tbl-cliente">
     <tbody>${datosClienteHTML}</tbody>
   </table>
@@ -350,8 +332,10 @@ function construirTicket(comprobante, opciones = {}) {
   <table class="tbl-det">
     <thead class="det-thead">
       <tr>
-        <th class="d-cant">Cant</th>
+        <th class="d-cant">Cant.</th>
+        <th class="d-und">Und.</th>
         <th class="d-desc">Descripción</th>
+        <th class="d-punit">P.Unit</th>
         <th class="d-tot">Total</th>
       </tr>
     </thead>
@@ -360,38 +344,27 @@ function construirTicket(comprobante, opciones = {}) {
 
   <hr class="sep">
 
-  <!-- ═══ RESUMEN DE TOTALES ════════════════════════════ -->
-  <table class="tbl-tot">
-    <tbody>
-      ${totalesRows}
-    </tbody>
-  </table>
-  <hr class="sep-fuerte">
-  <div class="total-block">
-    <div class="total-label">TOTAL A PAGAR</div>
-    <div class="total-monto">S/ ${f2(total)}</div>
+  <!-- ═══ TOTAL A PAGAR ═════════════════════════════════ -->
+  ${totalesRows ? `<table class="tbl-tot"><tbody>${totalesRows}</tbody></table>` : ""}
+  <div class="total-final">
+    <span>Total a pagar:</span>
+    <span>S/ ${f2(total)}</span>
   </div>
-  <hr class="sep-fuerte">
 
   <!-- ═══ PAGOS ════════════════════════════════════════ -->
-  <div class="pagos-titulo">Forma de Pago</div>
-  <div class="pagos-fecha">${fechaStr} ${horaStr}</div>
-  <table class="tbl-tot">
-    <tbody>
-      ${pagosRows}
-      ${vueltoRow}
-    </tbody>
-  </table>
+  <div class="pagos-titulo">Pagos:</div>
+  ${pagosHTML}
+  ${vueltoHTML}
+
+  ${observaciones
+    ? `<hr class="sep"><div class="pago-item">${observaciones}</div>`
+    : ""}
 
   <hr class="sep">
 
-  ${observaciones
-    ? `<div style="font-size:${t(14)};font-weight:700;margin:3px 0;">${observaciones}</div><hr class="sep">`
-    : ""}
-
   <!-- ═══ PIE ══════════════════════════════════════════ -->
   <div class="pie">
-    <div class="pie-gracias">¡Gracias por su compra!</div>
+    <div>¡Gracias por su compra!</div>
     <div>${EMPRESA.nombre}</div>
     <div>Vuelva pronto.</div>
     ${esElectronico
@@ -416,9 +389,10 @@ function generarTicketHTML(comprobante, opciones = {}) {
 </html>`;
 }
 
-// Ancho de renderizado del ticket en px (coincide con el max-width del CSS).
+// Ancho de renderizado del ticket en px — 80mm convertidos a px CSS (1mm ≈ 3.7795px),
+// igual al `width: 80mm` del body para que la imagen no quede con márgenes en blanco.
 // RawBT escala la imagen recibida al ancho físico del papel (58mm u 80mm).
-const RAWBT_ANCHO_PX = 420;
+const RAWBT_ANCHO_PX = 302;
 
 /**
  * Imprime el comprobante en una impresora térmica Bluetooth vía la app
