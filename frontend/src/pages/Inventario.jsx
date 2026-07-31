@@ -6,6 +6,7 @@ import {
 } from "../services/api";
 import { stockAmigable } from "../utils/stock";
 import { exportarExcel } from "../utils/exportExcel";
+import { normalizarFechaUTC } from "../components/NotaVenta";
 
 const tiposMovimiento = [
   { value: "ENTRADA", label: "Entrada" },
@@ -167,13 +168,13 @@ function Inventario() {
       m.id, nombreProducto(m.producto_id), m.tipo, Number(m.cantidad),
       Number(m.costo_unitario || 0), Number(m.precio_unitario || 0), m.stock_despues,
       m.lote || "", m.fecha_vencimiento ? new Date(m.fecha_vencimiento).toLocaleDateString() : "",
-      new Date(m.fecha).toLocaleString(), m.nota || "",
+      normalizarFechaUTC(m.fecha).toLocaleString(), m.nota || "",
     ]);
     exportarExcel("inventario_movimientos", enc, filas, "Movimientos");
   };
 
   const movimientosFiltrados = movimientos.filter((m) => {
-    const fecha = new Date(m.fecha);
+    const fecha = normalizarFechaUTC(m.fecha);
     if (filtroFechaDesde && fecha < new Date(filtroFechaDesde)) return false;
     if (filtroFechaHasta && fecha > new Date(filtroFechaHasta + "T23:59:59")) return false;
     if (filtroCantMin && Number(m.cantidad) < Number(filtroCantMin)) return false;
@@ -416,7 +417,7 @@ function Inventario() {
                   <td style={{ fontSize: "0.82rem" }}>
                     {m.fecha_vencimiento ? new Date(m.fecha_vencimiento).toLocaleDateString() : "—"}
                   </td>
-                  <td style={{ fontSize: "0.8rem", color: "#64748b" }}>{new Date(m.fecha).toLocaleString()}</td>
+                  <td style={{ fontSize: "0.8rem", color: "#64748b" }}>{normalizarFechaUTC(m.fecha).toLocaleString()}</td>
                   <td style={{ fontSize: "0.82rem", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nota || "—"}</td>
                   <td>
                     <div style={{ display: "flex", gap: "4px" }}>

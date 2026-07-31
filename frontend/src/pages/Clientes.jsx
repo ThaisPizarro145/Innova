@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { crearCliente, eliminarCliente, getClientes, getHistorialCliente, actualizarCliente } from "../services/api";
+import { normalizarFechaUTC } from "../components/NotaVenta";
 import { useConsultaDoc } from "../hooks/useConsultaDoc";
 import { buscarUbigeo, autocompletarDistrito } from "../data/ubigeo";
 
@@ -284,7 +285,7 @@ function Clientes() {
                 {historial.map((v) => (
                   <tr key={v.id}>
                     <td>{v.id}</td>
-                    <td>{new Date(v.fecha).toLocaleString()}</td>
+                    <td>{normalizarFechaUTC(v.fecha).toLocaleString()}</td>
                     <td>{formatearSoles(v.total)}</td>
                     <td>{v.forma_pago}</td>
                     <td>{v.estado}</td>

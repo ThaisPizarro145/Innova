@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getProductos, registrarCompra, getCompras, anularCompra, previewCalculoCompra } from "../services/api";
+import { normalizarFechaUTC } from "../components/NotaVenta";
 import "../styles/Compras.css";
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
@@ -730,7 +731,7 @@ export default function Compras() {
                 {compras.map((c) => (
                   <tr key={c.id} className={c.estado === "ANULADA" ? "fila-anulada" : ""}>
                     <td>{c.id}</td>
-                    <td>{new Date(c.fecha).toLocaleDateString("es-PE")}</td>
+                    <td>{normalizarFechaUTC(c.fecha).toLocaleDateString("es-PE")}</td>
                     <td>{c.numero || "—"}</td>
                     <td>{c.proveedor || "—"}</td>
                     <td>{formatSol(c.total)}</td>

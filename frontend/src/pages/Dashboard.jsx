@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getClientes, getProductos, getVentas } from "../services/api";
+import { normalizarFechaUTC } from "../components/NotaVenta";
 
 function formatearSoles(valor) {
   return `S/ ${Number(valor || 0).toFixed(2)}`;
@@ -19,7 +20,7 @@ function Dashboard() {
         const [productos, clientes, ventas] = await Promise.all([getProductos(), getClientes(), getVentas()]);
         const hoy = new Date();
         const ventasHoy = (ventas || []).filter((venta) => {
-          const fechaVenta = new Date(venta.fecha);
+          const fechaVenta = normalizarFechaUTC(venta.fecha);
           return fechaVenta.getDate() === hoy.getDate() && fechaVenta.getMonth() === hoy.getMonth() && fechaVenta.getFullYear() === hoy.getFullYear();
         });
 
