@@ -363,9 +363,9 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onImprim
         <div className="voucher-preview">
           <div className="voucher-preview-header">
             <div>
-              <div style={{ fontWeight: 800, fontSize: "1rem" }}>CORPORACION SOMOS ALIADOS</div>
-              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>RUC: 10739759931</div>
-              <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>AV. LA CULTURA PSJ C PUESTO 59 - SANTA ANITA</div>
+              <div style={{ fontWeight: 800, fontSize: "1rem" }}>{getEmpresa().nombre}</div>
+              <div style={{ fontSize: "0.78rem", color: "#64748b" }}>RUC: {getEmpresa().ruc}</div>
+              <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{getEmpresa().direccion}{getEmpresa().distrito ? ` - ${getEmpresa().distrito}` : ""}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontWeight: 700, color: "#0f6df2" }}>{tipo.label.toUpperCase()}</div>

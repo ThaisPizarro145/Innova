@@ -5,7 +5,7 @@
  * Solo HTML + CSS puro (sin librerías), pensado para window.print() y
  * para descargarse como un único archivo HTML autocontenido.
  */
-import { EMPRESA, normalizarFechaUTC } from "../NotaVenta";
+import { datosEmpresa, normalizarFechaUTC } from "../NotaVenta";
 import facturaCss from "./Factura.css?raw";
 
 const f2 = (v) => Number(v || 0).toFixed(2);
@@ -106,6 +106,7 @@ const TITULOS = {
  * @param {object} comprobante - ver Ventas.jsx (confirmarVenta / historial)
  */
 export function generarFacturaHTML(comprobante) {
+  const EMPRESA = datosEmpresa();
   const {
     tipo_documento   = "FACTURA",
     serie            = tipo_documento === "BOLETA" ? "B001" : "F001",

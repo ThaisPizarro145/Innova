@@ -4,15 +4,20 @@
  * Solo diseño — lógica del sistema intacta.
  */
 import html2canvas from "html2canvas";
+import { getEmpresa } from "../services/empresa";
 
-export const EMPRESA = {
-  nombre:    "CORPORACION SOMOS ALIADOS S.A.C.",
-  ruc:       "10739759931",
-  direccion: "AV. LA CULTURA PSJ. C - PUESTO 59",
-  ciudad:    "SANTA ANITA - LIMA",
-  correo:    "admicorporacionaliados@gmail.com",
-  celular:   "910501187",
-};
+/** Datos de la empresa configurados en ⚙ Configuración (localStorage), leídos en cada impresión. */
+export function datosEmpresa() {
+  const e = getEmpresa();
+  return {
+    nombre:    e.nombre || "MI BODEGA",
+    ruc:       e.ruc || "",
+    direccion: e.direccion || "",
+    ciudad:    [e.distrito, e.provincia || e.departamento].filter(Boolean).join(" - "),
+    correo:    e.email || "",
+    celular:   e.telefono || "",
+  };
+}
 
 const f2 = (v) => Number(v || 0).toFixed(2);
 
@@ -44,6 +49,7 @@ function construirTicket(comprobante, opciones = {}) {
     pesoBase   = 700, // font-weight del cuerpo del ticket
   } = opciones;
   const t = (px) => `${Math.round(px * escala * 10) / 10}px`;
+  const EMPRESA = datosEmpresa();
   const {
     tipo_documento   = "NOTA_VENTA",
     serie            = "NV01",
