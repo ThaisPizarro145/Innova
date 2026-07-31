@@ -112,12 +112,11 @@ function construirTicket(comprobante, opciones = {}) {
     const cantStr = cant % 1 === 0 ? String(cant) : cant.toFixed(2);
     const und     = (item.presentacion || "UND").toUpperCase();
     const desc    = (item.nombre || "").toUpperCase();
+    const undTag  = und !== "UND" ? ` <span class="d-und-tag">(${und})</span>` : "";
     return `
       <tr class="det-row">
         <td class="d-cant">${cantStr}</td>
-        <td class="d-und">${und}</td>
-        <td class="d-desc">${desc}</td>
-        <td class="d-pu">S/${f2(precio)}</td>
+        <td class="d-desc">${desc}${undTag}</td>
         <td class="d-tot">S/${f2(tot)}</td>
       </tr>`;
   }).join("");
@@ -148,139 +147,152 @@ function construirTicket(comprobante, opciones = {}) {
     /* ── Página de impresión ─────────────────────────── */
     @page {
       size: 80mm auto;
-      margin: 3mm 2mm;
+      margin: 3mm 1.5mm;
     }
 
     /* ── Body ────────────────────────────────────────── */
     body {
       font-family: ${fontFamily};
-      font-size: ${t(14)};
+      font-size: ${t(18)};
       font-weight: ${pesoBase};
-      line-height: 1.5;
+      line-height: 1.55;
       color: #000;
       background: #fff;
       width: 100%;
       max-width: 420px;
       margin: 0 auto;
-      padding: 4px 6px 12px 6px;
+      padding: 4px 3px 14px 3px;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      -webkit-font-smoothing: none;
     }
 
     /* ── Encabezado empresa ──────────────────────────── */
     .emp-nombre {
-      font-size: ${t(13.5)};
+      font-size: ${t(19)};
       font-weight: 900;
       text-align: center;
-      letter-spacing: 0.3px;
-      line-height: 1.35;
+      letter-spacing: 0.4px;
+      line-height: 1.3;
     }
     .emp-info {
-      font-size: ${t(11)};
+      font-size: ${t(14.5)};
+      font-weight: 700;
       text-align: center;
-      line-height: 1.65;
-      margin-top: 1px;
+      line-height: 1.6;
+      margin-top: 3px;
     }
 
     /* ── Separadores ─────────────────────────────────── */
-    .sep  { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-    .sep2 { border: none; border-top: 2px solid  #000; margin: 4px 0; }
+    .sep       { border: none; border-top: 1.5px dashed #000; margin: 6px 0; }
+    .sep-fuerte{ border: none; border-top: 3px solid  #000; margin: 6px 0; }
 
     /* ── Tipo de comprobante ─────────────────────────── */
     .comp-titulo {
-      font-size: ${t(15)};
+      font-size: ${t(21)};
       font-weight: 900;
       text-align: center;
-      letter-spacing: 2px;
-      margin: 4px 0 2px 0;
+      letter-spacing: 2.5px;
+      margin: 5px 0 3px 0;
     }
     .comp-numero {
-      font-size: ${t(13)};
-      font-weight: 700;
+      font-size: ${t(18)};
+      font-weight: 800;
       text-align: center;
+      letter-spacing: 0.5px;
     }
 
     /* ── Tabla datos cliente ─────────────────────────── */
     .tbl-cliente {
       width: 100%;
       border-collapse: collapse;
-      font-size: ${t(11.5)};
-      line-height: 1.6;
+      font-size: ${t(15.5)};
+      line-height: 1.7;
     }
-    .c-etq { font-weight: 700; white-space: nowrap; padding-right: 3px; width: 74px; }
+    .c-etq { font-weight: 900; white-space: nowrap; padding-right: 4px; width: 92px; }
     .c-sep { padding: 0 2px; width: 8px; }
-    .c-val { word-break: break-word; }
+    .c-val { font-weight: 700; word-break: break-word; }
 
     /* ── Tabla detalle productos ─────────────────────── */
     .tbl-det {
       width: 100%;
       border-collapse: collapse;
-      font-size: ${t(11.5)};
+      font-size: ${t(16)};
     }
     .det-thead th {
-      font-weight: 700;
-      font-size: ${t(11)};
-      padding: 1px 2px;
-      border-bottom: 1px solid #000;
+      font-weight: 900;
+      font-size: ${t(15)};
+      padding: 2px 2px 4px 2px;
+      border-bottom: 2px solid #000;
     }
-    .d-cant { text-align: right;  width: 28px;  padding-right: 5px; white-space: nowrap; }
-    .d-und  { text-align: left;   width: 36px;  padding-right: 4px; white-space: nowrap; }
-    .d-desc { text-align: left;   word-break: break-word; padding-right: 4px; }
-    .d-pu   { text-align: right;  width: 70px;  white-space: nowrap; padding-right: 4px; }
-    .d-tot  { text-align: right;  width: 72px;  white-space: nowrap; }
+    .d-cant { text-align: left;  width: 32px;  padding-right: 6px; white-space: nowrap; }
+    .d-desc { text-align: left;  word-break: break-word; padding-right: 6px; font-weight: 800; }
+    .d-tot  { text-align: right; width: 96px;  white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-    .det-row td { padding: 2px 2px; vertical-align: top; }
+    .det-row td { padding: 4px 2px; vertical-align: top; }
+    .d-und-tag { font-weight: 600; font-size: 0.72em; }
 
     /* ── Tabla totales ───────────────────────────────── */
     .tbl-tot {
       width: 100%;
       border-collapse: collapse;
-      font-size: ${t(11.5)};
+      font-size: ${t(15)};
     }
-    .t-row td { padding: 1px 2px; line-height: 1.55; }
+    .t-row td { padding: 2px 2px; line-height: 1.65; font-weight: 700; }
     .t-row td:first-child { text-align: left; }
     .t-row td:last-child  { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-    /* Total final */
-    .t-total td {
-      font-size: ${t(15)};
-      font-weight: 900;
-      padding: 2px 2px;
-    }
-    .t-total td:first-child { text-align: left; }
-    .t-total td:last-child  { text-align: right; white-space: nowrap; }
-
     /* Vuelto */
-    .t-vuelto td { font-weight: 700; }
+    .t-vuelto td { font-weight: 900; }
 
-    /* ── Sección pagos ───────────────────────────────── */
-    .pagos-titulo {
-      font-size: ${t(12)};
-      font-weight: 700;
+    /* ── Bloque TOTAL A PAGAR (destacado) ────────────── */
+    .total-block {
       text-align: center;
-      margin: 3px 0 1px 0;
+      padding: 4px 0 2px 0;
+    }
+    .total-label {
+      font-size: ${t(17)};
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      margin-bottom: 3px;
+    }
+    .total-monto {
+      font-size: ${t(30)};
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Sección forma de pago ───────────────────────── */
+    .pagos-titulo {
+      font-size: ${t(17)};
+      font-weight: 900;
+      text-align: center;
+      margin: 4px 0 2px 0;
+      letter-spacing: 0.5px;
     }
     .pagos-fecha {
-      font-size: ${t(11)};
+      font-size: ${t(14)};
+      font-weight: 700;
       text-align: center;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
 
     /* ── Pie ─────────────────────────────────────────── */
     .pie {
       text-align: center;
-      font-size: ${t(11)};
-      line-height: 1.7;
-      margin-top: 3px;
+      font-size: ${t(14.5)};
+      font-weight: 700;
+      line-height: 1.75;
+      margin-top: 4px;
     }
     .pie-gracias {
-      font-size: ${t(13.5)};
+      font-size: ${t(19)};
       font-weight: 900;
     }
     .pie-electronico {
-      font-size: ${t(10)};
+      font-size: ${t(13)};
       font-style: italic;
-      margin-top: 3px;
+      margin-top: 4px;
     }
   `;
 
@@ -292,10 +304,9 @@ function construirTicket(comprobante, opciones = {}) {
   <div class="emp-nombre">${EMPRESA.nombre}</div>
   <div class="emp-info">
     RUC: ${EMPRESA.ruc}<br>
-    ${EMPRESA.direccion}<br>
-    ${EMPRESA.ciudad}<br>
+    Dirección: ${EMPRESA.direccion}, ${EMPRESA.ciudad}<br>
     Correo: ${EMPRESA.correo}<br>
-    Cel: ${EMPRESA.celular}
+    Teléfono: ${EMPRESA.celular}
   </div>
 
   <hr class="sep">
@@ -318,9 +329,7 @@ function construirTicket(comprobante, opciones = {}) {
     <thead class="det-thead">
       <tr>
         <th class="d-cant">Cant</th>
-        <th class="d-und">Und</th>
         <th class="d-desc">Descripción</th>
-        <th class="d-pu">P.Unit</th>
         <th class="d-tot">Total</th>
       </tr>
     </thead>
@@ -335,19 +344,15 @@ function construirTicket(comprobante, opciones = {}) {
       ${totalesRows}
     </tbody>
   </table>
-  <hr class="sep2">
-  <table class="tbl-tot">
-    <tbody>
-      <tr class="t-total">
-        <td>TOTAL A PAGAR</td>
-        <td>S/ ${f2(total)}</td>
-      </tr>
-    </tbody>
-  </table>
-  <hr class="sep2">
+  <hr class="sep-fuerte">
+  <div class="total-block">
+    <div class="total-label">TOTAL A PAGAR</div>
+    <div class="total-monto">S/ ${f2(total)}</div>
+  </div>
+  <hr class="sep-fuerte">
 
   <!-- ═══ PAGOS ════════════════════════════════════════ -->
-  <div class="pagos-titulo">── Pagos ──</div>
+  <div class="pagos-titulo">Forma de Pago</div>
   <div class="pagos-fecha">${fechaStr} ${horaStr}</div>
   <table class="tbl-tot">
     <tbody>
@@ -359,7 +364,7 @@ function construirTicket(comprobante, opciones = {}) {
   <hr class="sep">
 
   ${observaciones
-    ? `<div style="font-size:11px;margin:2px 0;">${observaciones}</div><hr class="sep">`
+    ? `<div style="font-size:${t(14)};font-weight:700;margin:3px 0;">${observaciones}</div><hr class="sep">`
     : ""}
 
   <!-- ═══ PIE ══════════════════════════════════════════ -->
