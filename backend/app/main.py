@@ -4,7 +4,7 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import test, inventario, clientes, ventas, compras, categorias_config, categorias, caja, reportes, consulta
+from app.routers import test, inventario, clientes, ventas, compras, categorias_config, categorias, caja, reportes, consulta, empresa
 from app.database import engine
 from app import models, crud
 
@@ -67,6 +67,7 @@ app.include_router(categorias_config.router, prefix="/categorias-config", tags=[
 app.include_router(caja.router, prefix="/caja", tags=["Caja"])
 app.include_router(reportes.router, prefix="/reportes", tags=["Reportes"])
 app.include_router(consulta.router, prefix="/consulta", tags=["Consulta RUC/DNI"])
+app.include_router(empresa.router, prefix="/empresa", tags=["Empresa"])
 
 @app.on_event("startup")
 def on_startup():

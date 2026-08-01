@@ -23,6 +23,25 @@ class Categoria(Base):
     updated_at = Column(DateTime, default=now, onupdate=now)
 
 
+class EmpresaConfig(Base):
+    """Datos de la empresa (fila única, global) mostrados en el encabezado
+    de los comprobantes. Antes vivían en localStorage del navegador; ahora
+    se guardan en el servidor para que apliquen en todos los dispositivos."""
+    __tablename__ = "empresa_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200), nullable=True)
+    ruc = Column(String(20), nullable=True)
+    direccion = Column(String(250), nullable=True)
+    distrito = Column(String(100), nullable=True)
+    provincia = Column(String(100), nullable=True)
+    departamento = Column(String(100), nullable=True)
+    telefono = Column(String(30), nullable=True)
+    email = Column(String(150), nullable=True)
+    vendedor = Column(String(150), nullable=True)
+    updated_at = Column(DateTime, default=now, onupdate=now)
+
+
 class CajaMovimiento(Base):
     """Movimientos de caja libre (ingresos/egresos manuales)."""
     __tablename__ = "caja_movimientos"

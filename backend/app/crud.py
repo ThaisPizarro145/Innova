@@ -385,6 +385,28 @@ def listar_ventas_por_cliente(db: Session, cliente_id: int, skip: int = 0, limit
     )
 
 
+def get_or_create_empresa(db: Session) -> "models.EmpresaConfig":
+    """Config de empresa: fila única y global (sin multi-tenant en esta app).
+    Se crea con valores vacíos la primera vez que se consulta."""
+    empresa = db.query(models.EmpresaConfig).first()
+    if not empresa:
+        empresa = models.EmpresaConfig()
+        db.add(empresa)
+        db.commit()
+        db.refresh(empresa)
+    return empresa
+
+
+def actualizar_empresa(db: Session, datos: schemas.EmpresaUpdate) -> "models.EmpresaConfig":
+    empresa = get_or_create_empresa(db)
+    for field, value in datos.dict(exclude_unset=True).items():
+        setattr(empresa, field, value)
+    empresa.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
 def _siguiente_numero_documento(db: Session, serie: str) -> str:
     """
     Obtiene y reserva el siguiente número correlativo para una serie.

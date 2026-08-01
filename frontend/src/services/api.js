@@ -477,6 +477,14 @@ export async function eliminarCategoria(id) {
   return await request(`/categorias/${id}`, { method: "DELETE" });
 }
 
+export async function getEmpresaRemota() {
+  return await request("/empresa");
+}
+
+export async function actualizarEmpresaRemota(datos) {
+  return await request("/empresa", { method: "PUT", body: JSON.stringify(datos) });
+}
+
 // ─── Reportes ─────────────────────────────────────────────────
 
 export async function getReporteResumen({ periodo = "mes", fechaDesde = "", fechaHasta = "" } = {}) {

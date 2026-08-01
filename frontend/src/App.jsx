@@ -1,6 +1,7 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { Link, Routes, Route, useLocation } from "react-router-dom";
+import { cargarEmpresa } from "./services/empresa";
 
 import Dashboard from "./pages/Dashboard";
 import Medicamentos from "./pages/Medicamentos";
@@ -33,6 +34,10 @@ const ENLACES = [
 function App() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    cargarEmpresa();
+  }, []);
 
   useEffect(() => {
     setMenuAbierto(false);

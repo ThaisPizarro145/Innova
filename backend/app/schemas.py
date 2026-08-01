@@ -37,6 +37,33 @@ class CategoriaResponse(CategoriaBase):
         orm_mode = True
 
 
+# ── Empresa (config global, fila única) ────────────────────────────────────────
+
+class EmpresaBase(BaseModel):
+    nombre: Optional[str] = None
+    ruc: Optional[str] = None
+    direccion: Optional[str] = None
+    distrito: Optional[str] = None
+    provincia: Optional[str] = None
+    departamento: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    vendedor: Optional[str] = None
+
+
+class EmpresaUpdate(EmpresaBase):
+    pass
+
+
+class EmpresaResponse(EmpresaBase):
+    id: int
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
 # ── CajaMovimiento ─────────────────────────────────────────────────────────────
 
 class CajaMovimientoBase(BaseModel):

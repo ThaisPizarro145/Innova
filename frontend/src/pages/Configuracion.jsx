@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getToken, setToken } from "../services/sunat";
-import { getEmpresa, setEmpresa } from "../services/empresa";
+import { getEmpresa, setEmpresa, cargarEmpresa } from "../services/empresa";
 
 export default function Configuracion() {
   const [token, setTokenInput] = useState(getToken());
@@ -8,6 +8,12 @@ export default function Configuracion() {
 
   const [empresa, setEmpresaState] = useState(getEmpresa());
   const [empresaGuardada, setEmpresaGuardada] = useState(false);
+  const [guardandoEmpresa, setGuardandoEmpresa] = useState(false);
+  const [errorEmpresa, setErrorEmpresa] = useState("");
+
+  useEffect(() => {
+    cargarEmpresa().then(setEmpresaState);
+  }, []);
 
   const guardarToken = () => {
     setToken(token);
@@ -15,10 +21,19 @@ export default function Configuracion() {
     setTimeout(() => setTokenGuardado(false), 2500);
   };
 
-  const guardarEmpresa = () => {
-    setEmpresa(empresa);
-    setEmpresaGuardada(true);
-    setTimeout(() => setEmpresaGuardada(false), 2500);
+  const guardarEmpresa = async () => {
+    setGuardandoEmpresa(true);
+    setErrorEmpresa("");
+    try {
+      const guardado = await setEmpresa(empresa);
+      setEmpresaState(guardado);
+      setEmpresaGuardada(true);
+      setTimeout(() => setEmpresaGuardada(false), 2500);
+    } catch (error) {
+      setErrorEmpresa(error.message || "No se pudo guardar. Intenta de nuevo.");
+    } finally {
+      setGuardandoEmpresa(false);
+    }
   };
 
   const campoEmpresa = (field, label, placeholder = "", type = "text") => (
@@ -63,8 +78,11 @@ export default function Configuracion() {
         </div>
 
         <div style={{ marginTop: "14px" }}>
-          <button type="button" className="btn-nuevo" onClick={guardarEmpresa}>💾 Guardar datos de empresa</button>
-          {empresaGuardada && <span style={{ color: "#16a34a", fontSize: "0.85rem", marginLeft: "12px" }}>✓ Guardado</span>}
+          <button type="button" className="btn-nuevo" onClick={guardarEmpresa} disabled={guardandoEmpresa}>
+            {guardandoEmpresa ? "Guardando..." : "💾 Guardar datos de empresa"}
+          </button>
+          {empresaGuardada && <span style={{ color: "#16a34a", fontSize: "0.85rem", marginLeft: "12px" }}>✓ Guardado — ya aplica en todos los dispositivos</span>}
+          {errorEmpresa && <span style={{ color: "#dc2626", fontSize: "0.85rem", marginLeft: "12px" }}>{errorEmpresa}</span>}
         </div>
       </div>
 
