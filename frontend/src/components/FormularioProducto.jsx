@@ -11,7 +11,7 @@
  *  4. Sistema calcula automáticamente todos los precios de venta
  *  5. Se muestran solo las unidades de venta de esa categoría
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useCategoriasConfig } from "../hooks/useCategoriaConfig";
 
 // Etiquetas amigables para los nombres de unidades
@@ -93,6 +93,11 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
   const [mensaje, setMensaje] = useState("");
   const [guardando, setGuardando] = useState(false);
 
+  // Snapshot de los valores de compra tal como quedó guardado el producto.
+  // Mientras el usuario no toque ninguno de estos, no se debe recalcular
+  // (recalcular pisaría los precios reales guardados con precios "sugeridos").
+  const recalcSnapshotRef = useRef(null);
+
   // Cargar datos al editar
   useEffect(() => {
     if (productoEditando) {
@@ -100,6 +105,14 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
       const unidadCompraSaved = productoEditando.unidad_compra
         || productoEditando.nombre_empaque_mayor?.toLowerCase()
         || "";
+      const margenSaved = productoEditando.margen_ganancia_default ?? 20;
+      const costoSaved = productoEditando.costo || "";
+      recalcSnapshotRef.current = {
+        unidad_compra: unidadCompraSaved,
+        costo_compra: costoSaved,
+        cantidad_comprada: 1,
+        margen_ganancia: margenSaved,
+      };
       setForm({
         ...ESTADO_INICIAL,
         nombre: productoEditando.nombre || "",
@@ -108,8 +121,8 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
         fecha_vencimiento: fechaISOaDDMMAAAA(productoEditando.fecha_vencimiento),
         stock_actual: productoEditando.stock_actual ?? "",
         stock_minimo: productoEditando.stock_minimo ?? "",
-        margen_ganancia: productoEditando.margen_ganancia_default ?? 20,
-        costo_compra: productoEditando.costo || "",
+        margen_ganancia: margenSaved,
+        costo_compra: costoSaved,
         unidad_compra: unidadCompraSaved,
         precios_calculados: _reconstructPrecios(productoEditando),
         unidad_stock: productoEditando.unidad_base || "unidad",
@@ -178,6 +191,18 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
         setForm((p) => ({ ...p, precios_calculados: [] }));
       }
       return;
+    }
+    // Al editar: no recalcular (y pisar los precios reales ya cargados) mientras
+    // el usuario no haya cambiado ninguno de los valores que afectan el cálculo.
+    if (productoEditando && recalcSnapshotRef.current) {
+      const snap = recalcSnapshotRef.current;
+      const sinCambios =
+        form.unidad_compra === snap.unidad_compra &&
+        Number(form.costo_compra) === Number(snap.costo_compra) &&
+        Number(form.cantidad_comprada) === Number(snap.cantidad_comprada) &&
+        Number(form.margen_ganancia) === Number(snap.margen_ganancia) &&
+        Object.keys(form.factor_override || {}).length === 0;
+      if (sinCambios) return;
     }
     setCalculando(true);
     try {
