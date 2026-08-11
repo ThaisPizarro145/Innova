@@ -67,7 +67,7 @@ body {
 
 .f-empresa-linea {
   font-size: 10px;
-  color: var(--f-gris-700);
+  color: var(--f-negro);
   line-height: 1.55;
 }
 
@@ -92,7 +92,7 @@ body {
 
 .f-doc-ruc {
   font-size: 9.5px;
-  color: var(--f-gris-700);
+  color: var(--f-negro);
   margin-bottom: 4px;
 }
 
@@ -125,7 +125,7 @@ body {
 .f-etq {
   flex: none;
   width: 118px;
-  color: var(--f-gris-700);
+  color: var(--f-negro);
   font-weight: 600;
 }
 
@@ -197,7 +197,7 @@ body {
 .f-letras {
   flex: 1 1 auto;
   font-size: 9.8px;
-  color: var(--f-gris-900);
+  color: var(--f-negro);
   padding-top: 10px;
   border-top: 1px solid var(--f-gris-300);
   text-transform: uppercase;
@@ -215,7 +215,7 @@ body {
   padding: 6px 4px;
   font-size: 10.3px;
   border-bottom: 1px solid var(--f-gris-200);
-  color: var(--f-gris-900);
+  color: var(--f-negro);
 }
 
 .f-tot-row span:last-child {
@@ -238,7 +238,7 @@ body {
   margin-top: 16px;
   padding: 10px 14px;
   font-size: 9.7px;
-  color: var(--f-gris-900);
+  color: var(--f-negro);
   background: var(--f-gris-100);
   border-left: 3px solid var(--f-azul);
   border-radius: 0 6px 6px 0;

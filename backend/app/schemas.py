@@ -2,9 +2,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, validator
 
-PRESENTACIONES_VALIDAS = ["kilo", "saco", "bolsa", "caja", "unidad", "maple", "paquete",
-                          "medio_saco", "litro", "botella", "docena", "balde", "jaba"]
-TIPOS_FLUJO_VALIDOS = ["caja_unidad", "saco_kilo", "saco_unidad", "multinivel"]
+PRESENTACIONES_VALIDAS = ["Caja", "Unidad", "Blíster"]
 
 
 # ── Categorias ─────────────────────────────────────────────────────────────────
@@ -35,6 +33,7 @@ class CategoriaResponse(CategoriaBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 # ── Empresa (config global, fila única) ────────────────────────────────────────
@@ -89,6 +88,7 @@ class CajaMovimientoResponse(CajaMovimientoBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 # ── Reporte resumen ────────────────────────────────────────────────────────────
@@ -117,141 +117,31 @@ class ReporteResumen(BaseModel):
     topProductos: List[TopProducto]
 
 
-# ── Configuración de Categorías ────────────────────────────────────────────────
-
-class CategoriaConfigBase(BaseModel):
-    nombre: str = Field(..., max_length=150)
-    descripcion: Optional[str] = None
-    icono: str = "📦"
-    color: str = "#0f6df2"
-    # Lista de nombres de unidades válidas para compra
-    unidades_compra: List[str] = []
-    # Lista de nombres de unidades válidas para venta
-    unidades_venta: List[str] = []
-    # Tabla de conversiones: { "saco": {"tipo": "peso", "kg": 100}, ... }
-    conversiones: Dict[str, Any] = {}
-    tipo_flujo_default: Optional[str] = None
-    empaque_mayor_default: Optional[str] = None
-    unidad_menor_default: Optional[str] = None
-    nivel2_nombre_default: Optional[str] = None
-    margen_ganancia_default: float = 20.0
-    activo: bool = True
-
-    @validator("tipo_flujo_default")
-    def tipo_flujo_valido(cls, v):
-        if v and v not in TIPOS_FLUJO_VALIDOS:
-            raise ValueError(f"tipo_flujo_default debe ser uno de: {TIPOS_FLUJO_VALIDOS}")
-        return v
-
-
-class CategoriaConfigCreate(CategoriaConfigBase):
-    pass
-
-
-class CategoriaConfigUpdate(BaseModel):
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    icono: Optional[str] = None
-    color: Optional[str] = None
-    unidades_compra: Optional[List[str]] = None
-    unidades_venta: Optional[List[str]] = None
-    conversiones: Optional[Dict[str, Any]] = None
-    tipo_flujo_default: Optional[str] = None
-    empaque_mayor_default: Optional[str] = None
-    unidad_menor_default: Optional[str] = None
-    nivel2_nombre_default: Optional[str] = None
-    margen_ganancia_default: Optional[float] = None
-    activo: Optional[bool] = None
-
-
-class CategoriaConfigResponse(CategoriaConfigBase):
-    id: int
-    eliminado: bool
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        orm_mode = True
-
-
-# ── Cálculo de precios por categoría ──────────────────────────────────────────
-
-class CalculoPrecioRequest(BaseModel):
-    """Solicitud de cálculo de precios sugeridos dado un costo de compra."""
-    categoria_nombre: str
-    unidad_compra: str             # ej: "saco"
-    costo_compra: float            # precio pagado por 1 unidad de compra
-    cantidad_comprada: float = 1.0
-    margen_ganancia: float = 20.0
-    # Factores de conversión opcionales (sobreescriben los de la categoría)
-    factor_override: Optional[Dict[str, Any]] = None
-
-
-class PrecioCalculado(BaseModel):
-    unidad: str
-    costo: float
-    precio_venta: float
-    descripcion: Optional[str] = None
-
-
-class CalculoPrecioResponse(BaseModel):
-    categoria: str
-    unidad_compra: str
-    costo_compra: float
-    margen_ganancia: float
-    precios: List[PrecioCalculado]
-    stock_ingresado: float
-    unidad_stock: str
-
-
-class EquivalenciasProducto(BaseModel):
-    """
-    Factores de conversión definidos en la ficha del producto.
-    Solo los campos relevantes al tipo_flujo deben estar presentes.
-    """
-    unidades_por_empaque: Optional[float] = None   # caja_unidad / saco_unidad
-    kg_por_empaque: Optional[float] = None          # saco_kilo / multinivel
-    nivel2_por_empaque: Optional[float] = None      # multinivel: maples/paquete
-    unidades_por_nivel2: Optional[float] = None     # multinivel: huevos/maple
-
-
 class ProductoBase(BaseModel):
-    codigo: Optional[str] = Field(None, max_length=80)
+    """Datos fijos/maestros del medicamento. Costo, lote, fecha de
+    vencimiento y stock viven en Compras/Lotes, no aquí."""
     nombre: str = Field(..., max_length=200)
-    categoria: Optional[str] = None
-    proveedor: Optional[str] = None
     laboratorio: Optional[str] = None
-    lote: Optional[str] = None
-    fecha_vencimiento: Optional[date] = None
-    costo: float = 0.0
-    precio_venta: float = 0.0
+    marca: Optional[str] = None
+    principio_activo: Optional[str] = None
+    concentracion: Optional[str] = None
+    forma_farmaceutica: Optional[str] = None
+    presentacion_comercial: Optional[str] = None
     iva: bool = False
-    utilidad: float = 0.0
-    stock_actual: float = 0.0
     stock_minimo: float = 0.0
     unidad_base: str = "unidad"
     precios_presentacion: Optional[Dict[str, float]] = None
 
-    # ── Módulo 1: Configuración de empaque ──────────────────────────────────
-    tipo_flujo: Optional[str] = None                  # caja_unidad | saco_kilo | saco_unidad | multinivel
-    nombre_empaque_mayor: Optional[str] = None        # Caja, Saco, Paquete…
-    nombre_unidad_menor: Optional[str] = None         # Unidad, Kilo, Bolsa…
-    nombre_nivel2: Optional[str] = None               # Maple (solo multinivel)
-    equivalencias: Optional[EquivalenciasProducto] = None
-    margen_ganancia_default: float = 20.0
+    # ── Presentaciones fijas: Caja / Unidad / Blíster ───────────────────────
+    unidades_por_caja: Optional[float] = None
+    unidades_por_blister: Optional[float] = None
 
     activo: bool = True
 
-    @validator("stock_actual", "stock_minimo")
+    @validator("stock_minimo")
     def no_negativo(cls, v):
         if v < 0:
-            raise ValueError("El stock no puede ser negativo")
-        return v
-
-    @validator("precio_venta", "costo")
-    def no_precio_negativo(cls, v):
-        if v < 0:
-            raise ValueError("El precio/costo no puede ser negativo")
+            raise ValueError("El stock mínimo no puede ser negativo")
         return v
 
     @validator("precios_presentacion")
@@ -259,78 +149,53 @@ class ProductoBase(BaseModel):
         # Aceptar cualquier clave de presentación (validación flexible)
         return v or {}
 
-    @validator("tipo_flujo")
-    def validar_tipo_flujo(cls, v):
-        if v and v not in TIPOS_FLUJO_VALIDOS:
-            raise ValueError(f"tipo_flujo debe ser uno de: {TIPOS_FLUJO_VALIDOS}")
-        return v
-
-    @validator("utilidad")
-    def utilidad_valida(cls, v, values):
-        return v
-
-
 
 class ProductoCreate(ProductoBase):
-    categoria: str = Field(..., min_length=1)
+    categoria_id: int
 
 
 class ProductoUpdate(BaseModel):
-    codigo: Optional[str] = None
     nombre: Optional[str] = None
-    categoria: Optional[str] = None
-    proveedor: Optional[str] = None
+    categoria_id: Optional[int] = None
     laboratorio: Optional[str] = None
-    lote: Optional[str] = None
-    fecha_vencimiento: Optional[date] = None
-    costo: Optional[float] = None
-    precio_venta: Optional[float] = None
+    marca: Optional[str] = None
+    principio_activo: Optional[str] = None
+    concentracion: Optional[str] = None
+    forma_farmaceutica: Optional[str] = None
+    presentacion_comercial: Optional[str] = None
     iva: Optional[bool] = None
-    utilidad: Optional[float] = None
-    stock_actual: Optional[float] = None
     stock_minimo: Optional[float] = None
     unidad_base: Optional[str] = None
     precios_presentacion: Optional[Dict[str, float]] = None
-    # Módulo 1
-    tipo_flujo: Optional[str] = None
-    nombre_empaque_mayor: Optional[str] = None
-    nombre_unidad_menor: Optional[str] = None
-    nombre_nivel2: Optional[str] = None
-    equivalencias: Optional[EquivalenciasProducto] = None
-    margen_ganancia_default: Optional[float] = None
+    unidades_por_caja: Optional[float] = None
+    unidades_por_blister: Optional[float] = None
     activo: Optional[bool] = None
 
-    @validator("stock_actual", "stock_minimo")
+    @validator("stock_minimo")
     def no_negativo(cls, v):
         if v is not None and v < 0:
-            raise ValueError("El stock no puede ser negativo")
-        return v
-
-    @validator("precio_venta", "costo")
-    def no_precio_negativo(cls, v):
-        if v is not None and v < 0:
-            raise ValueError("El precio/costo no puede ser negativo")
-        return v
-
-    @validator("tipo_flujo")
-    def validar_tipo_flujo(cls, v):
-        if v and v not in TIPOS_FLUJO_VALIDOS:
-            raise ValueError(f"tipo_flujo debe ser uno de: {TIPOS_FLUJO_VALIDOS}")
-        return v
-
-    @validator("utilidad")
-    def utilidad_valida(cls, v, values):
+            raise ValueError("El stock mínimo no puede ser negativo")
         return v
 
 
 class ProductoResponse(ProductoBase):
     id: int
+    categoria_id: int
+    categoria: Optional[CategoriaResponse] = None
     created_at: datetime
     updated_at: datetime
     eliminado: bool
 
+    # ── Calculados a partir de Lotes/Movimientos (ver crud.py), no columnas ──
+    stock_actual: float = 0.0
+    ultimo_costo: Optional[float] = None
+    ultima_compra: Optional[date] = None
+    ultima_venta: Optional[date] = None
+    proximo_vencimiento: Optional[date] = None
+
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class ClienteBase(BaseModel):
     dni: Optional[str] = None
@@ -394,6 +259,9 @@ class ClienteResponse(ClienteBase):
         from_attributes = True
 
 
+TIPOS_AJUSTE_MANUAL = ["AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"]
+
+
 class MovimientoInventarioBase(BaseModel):
     producto_id: int
     tipo: str
@@ -403,6 +271,9 @@ class MovimientoInventarioBase(BaseModel):
     nota: Optional[str] = None
     fecha_vencimiento: Optional[date] = None
     lote: Optional[str] = None
+    # Solo para AJUSTE_NEGATIVO: si se informa, descuenta de ese lote puntual
+    # en vez de seguir FIFO automático.
+    lote_id: Optional[int] = None
 
     @validator("cantidad")
     def cantidad_positiva(cls, v):
@@ -412,7 +283,20 @@ class MovimientoInventarioBase(BaseModel):
 
 
 class MovimientoInventarioCreate(MovimientoInventarioBase):
-    pass
+    """Los movimientos ENTRADA/SALIDA/DEVOLUCION solo los genera el sistema
+    (Compras/Ventas). Aquí solo se permiten ajustes manuales de inventario."""
+
+    @validator("tipo")
+    def tipo_ajuste_valido(cls, v):
+        if v not in TIPOS_AJUSTE_MANUAL:
+            raise ValueError(f"tipo debe ser uno de: {TIPOS_AJUSTE_MANUAL}")
+        return v
+
+    @validator("costo_unitario")
+    def costo_requerido_en_positivo(cls, v, values):
+        if values.get("tipo") == "AJUSTE_POSITIVO" and (not v or v <= 0):
+            raise ValueError("Un ajuste positivo requiere un costo unitario mayor a cero")
+        return v
 
 
 class MovimientoInventarioUpdate(BaseModel):
@@ -430,19 +314,19 @@ class MovimientoInventarioResponse(MovimientoInventarioBase):
     stock_despues: float
     lote: Optional[str] = None
     fecha_vencimiento: Optional[date] = None
+    venta_id: Optional[int] = None
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class VentaDetalleBase(BaseModel):
     producto_id: int
-    cantidad: float           # float para kilos/fracciones
+    cantidad: float
     precio_unitario: float
     descuento: float = 0.0
-    presentacion: Optional[str] = "unidad"   # kilo, saco, bolsa, caja, unidad
-    lote: Optional[str] = None
-    fecha_vencimiento: Optional[date] = None
+    presentacion: Optional[str] = "Unidad"   # Caja | Unidad | Blíster
 
     @validator("cantidad")
     def cantidad_positiva(cls, v):
@@ -458,7 +342,8 @@ class VentaDetalleBase(BaseModel):
 
     @validator("presentacion")
     def presentacion_valida(cls, v):
-        # Aceptar cualquier presentación definida por la categoría
+        if v and v not in PRESENTACIONES_VALIDAS:
+            raise ValueError(f"presentacion debe ser una de: {PRESENTACIONES_VALIDAS}")
         return v
 
 
@@ -519,6 +404,7 @@ class VentaResponse(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class CajaResponse(BaseModel):
@@ -531,58 +417,27 @@ class CajaResponse(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 # ── Compras ────────────────────────────────────────────────────────────────────
 
-TIPOS_PRESENTACION = ["caja_unidad", "saco_kilo", "saco_unidad", "multinivel"]
-
-
 class CompraDetalleBase(BaseModel):
     producto_id: int
-    tipo_presentacion: str = Field("caja_unidad", description="caja_unidad | saco_kilo | saco_unidad | multinivel")
-    cantidad_empaque: float = Field(1.0, gt=0, description="Cantidad de empaques comprados")
-    nombre_empaque: str = Field("Caja", max_length=50)
-    precio_empaque: float = Field(..., gt=0, description="Precio por empaque mayor")
-
-    # Contenido del empaque
-    unidades_por_empaque: Optional[float] = None   # Casos A, C y D (maples/paq)
-    kg_por_empaque: Optional[float] = None          # Casos B y D
-
-    # Nivel 2 para multinivel (Huevos)
-    nivel2_cantidad: Optional[float] = None         # maples por paquete
-    nivel2_nombre: Optional[str] = None             # "Maple"
-    unidades_por_nivel2: Optional[float] = None     # huevos por maple
+    presentacion: str = Field("Unidad", description="Caja | Unidad | Blíster")
+    cantidad_presentacion: float = Field(1.0, gt=0, description="Cantidad comprada en esa presentación")
+    precio_presentacion: float = Field(..., gt=0, description="Precio pagado por una unidad de esa presentación")
+    # Factor de conversión a unidades base; si no se envía, se toma de la ficha del producto
+    unidades_por_presentacion: Optional[float] = None
 
     porcentaje_ganancia: float = Field(20.0, ge=0)
     lote: Optional[str] = None
     fecha_vencimiento: Optional[date] = None
 
-    @validator("tipo_presentacion")
-    def tipo_valido(cls, v):
-        if v not in TIPOS_PRESENTACION:
-            raise ValueError(f"tipo_presentacion debe ser uno de: {TIPOS_PRESENTACION}")
-        return v
-
-    @validator("unidades_por_empaque", always=True)
-    def validar_unidades(cls, v, values):
-        tipo = values.get("tipo_presentacion", "")
-        if tipo in ("caja_unidad", "saco_unidad") and (v is None or v <= 0):
-            raise ValueError("unidades_por_empaque es requerido y debe ser > 0 para este tipo")
-        return v
-
-    @validator("kg_por_empaque", always=True)
-    def validar_kg(cls, v, values):
-        tipo = values.get("tipo_presentacion", "")
-        if tipo == "saco_kilo" and (v is None or v <= 0):
-            raise ValueError("kg_por_empaque es requerido y debe ser > 0 para tipo saco_kilo")
-        return v
-
-    @validator("nivel2_cantidad", always=True)
-    def validar_multinivel(cls, v, values):
-        tipo = values.get("tipo_presentacion", "")
-        if tipo == "multinivel" and (v is None or v <= 0):
-            raise ValueError("nivel2_cantidad es requerido para tipo multinivel")
+    @validator("presentacion")
+    def presentacion_valida(cls, v):
+        if v not in PRESENTACIONES_VALIDAS:
+            raise ValueError(f"presentacion debe ser una de: {PRESENTACIONES_VALIDAS}")
         return v
 
 
@@ -593,34 +448,31 @@ class CompraDetalleCreate(CompraDetalleBase):
 class CompraDetalleResponse(BaseModel):
     id: int
     producto_id: int
-    tipo_presentacion: str
-    cantidad_empaque: float
-    nombre_empaque: str
-    precio_empaque: float
-    unidades_por_empaque: Optional[float]
-    kg_por_empaque: Optional[float]
-    nivel2_cantidad: Optional[float]
-    nivel2_nombre: Optional[str]
-    unidades_por_nivel2: Optional[float]
-    costo_empaque: float
+    presentacion: str
+    cantidad_presentacion: float
+    precio_presentacion: float
+    unidades_por_presentacion: float
     costo_unitario: float
-    costo_nivel2: Optional[float]
     porcentaje_ganancia: float
-    precio_venta_empaque: float
+    precio_venta_presentacion: float
     precio_venta_unitario: float
-    precio_venta_nivel2: Optional[float]
     stock_ingresado: float
-    unidad_stock: str
     lote: Optional[str]
     fecha_vencimiento: Optional[date]
+    lote_id: Optional[int] = None
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class CompraCreate(BaseModel):
     numero: Optional[str] = None
-    proveedor: Optional[str] = None
+    tipo_comprobante: Optional[str] = None
+    serie: Optional[str] = None
+    moneda: str = "PEN"
+    proveedor_id: Optional[int] = None
+    proveedor_nombre: Optional[str] = None
     observaciones: Optional[str] = None
     detalles: List[CompraDetalleCreate] = Field(..., min_items=1)
 
@@ -628,7 +480,11 @@ class CompraCreate(BaseModel):
 class CompraResponse(BaseModel):
     id: int
     numero: Optional[str]
-    proveedor: Optional[str]
+    tipo_comprobante: Optional[str] = None
+    serie: Optional[str] = None
+    moneda: Optional[str] = None
+    proveedor_id: Optional[int] = None
+    proveedor_nombre: Optional[str] = None
     fecha: datetime
     subtotal: float
     igv: float
@@ -640,3 +496,94 @@ class CompraResponse(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
+
+
+# ── Lotes ──────────────────────────────────────────────────────────────────────
+
+class LoteResponse(BaseModel):
+    id: int
+    producto_id: int
+    producto_nombre: Optional[str] = None
+    compra_detalle_id: Optional[int] = None
+    codigo_lote: Optional[str] = None
+    fecha_vencimiento: Optional[date] = None
+    costo_unitario: float
+    precio_venta_unitario: float
+    cantidad_inicial: float
+    cantidad_disponible: float
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Proveedores ─────────────────────────────────────────────────────────────────
+
+class ProveedorBase(BaseModel):
+    nombre: str = Field(..., max_length=200)
+    ruc: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    activo: bool = True
+
+    @validator("ruc")
+    def ruc_valido(cls, v):
+        v = v.strip() if v else v
+        if v and len(v) != 11:
+            raise ValueError("RUC debe tener 11 caracteres")
+        return v or None
+
+
+class ProveedorCreate(ProveedorBase):
+    pass
+
+
+class ProveedorUpdate(BaseModel):
+    nombre: Optional[str] = None
+    ruc: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+class ProveedorResponse(ProveedorBase):
+    id: int
+    eliminado: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Caja: apertura y cierre ──────────────────────────────────────────────────────
+
+class CajaAperturaCreate(BaseModel):
+    monto_inicial: float = Field(0.0, ge=0)
+
+
+class CajaAperturaCierre(BaseModel):
+    monto_contado: float = Field(..., ge=0)
+
+
+class CajaAperturaResponse(BaseModel):
+    id: int
+    fecha: datetime
+    monto_inicial: float
+    estado: str
+    fecha_cierre: Optional[datetime] = None
+    monto_contado: Optional[float] = None
+    total_ventas: Optional[float] = None
+    total_efectivo: Optional[float] = None
+    total_tarjeta: Optional[float] = None
+    total_yape_plin: Optional[float] = None
+    total_gastos: Optional[float] = None
+    diferencia: Optional[float] = None
+    saldo_final: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

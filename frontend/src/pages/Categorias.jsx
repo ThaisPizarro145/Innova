@@ -1,9 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { getCategorias, crearCategoria, actualizarCategoria, eliminarCategoria, getProductos } from "../services/api";
 
-const ICONOS = ["🧹","🧼","🫧","🧺","🪣","🌾","🫘","🌽","🍚","🧈","🥚","🐔","🥩","🐟","🍫","🍬","🧃","🥤","🛒","📦","🏠","🌿","🍋","🧂","🫙","🥫","🍶","🫒","🥜","🌰","🍞","🧁","🍭","🧴","🪥","🧻","🧽","💧","🔋","💡"];
+// Ícono/color ya no se piden en el formulario (el usuario solo escribe el
+// nombre) — se asignan automáticamente ciclando estas paletas para que las
+// insignias de categoría sigan viéndose distintas entre sí en Productos/Inventario.
+const ICONOS = ["💊","🩹","🧴","🌡️","💉","🧬","🦠","🩺","🧪","📦","🧊","🌿","🍬","🧫","🩸","🧉","🧻","🧼","🫙","🥤"];
 const COLORES_PRESET = ["#0f6df2","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#f97316","#84cc16","#6366f1"];
-const estadoInicial = { nombre: "", descripcion: "", icono: "📦", color: "#0f6df2" };
+const estadoInicial = { nombre: "" };
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
 
 export default function Categorias() {
@@ -35,15 +38,28 @@ export default function Categorias() {
   const guardar = async () => {
     if (!form.nombre.trim()) { setMensaje("El nombre es obligatorio."); return; }
     try {
-      if (editandoId !== null) { await actualizarCategoria(editandoId, form); setMensaje("Categoría actualizada."); }
-      else { await crearCategoria(form); setMensaje("Categoría creada."); }
+      if (editandoId !== null) {
+        await actualizarCategoria(editandoId, { nombre: form.nombre });
+        setMensaje("Categoría actualizada.");
+      } else {
+        // Ícono/color no se piden en el formulario: se asignan ciclando las
+        // paletas según cuántas categorías existen ya, solo para que las
+        // insignias sigan viéndose distintas entre sí.
+        const indice = categorias.length;
+        await crearCategoria({
+          nombre: form.nombre,
+          icono: ICONOS[indice % ICONOS.length],
+          color: COLORES_PRESET[indice % COLORES_PRESET.length],
+        });
+        setMensaje("Categoría creada.");
+      }
       limpiar(); cargar();
     } catch (e) { setMensaje(e.message); }
   };
 
   const editar = (cat) => {
     setEditandoId(cat.id);
-    setForm({ nombre: cat.nombre, descripcion: cat.descripcion || "", icono: cat.icono || "📦", color: cat.color || "#0f6df2" });
+    setForm({ nombre: cat.nombre });
     setMostrarForm(true);
   };
 
@@ -62,24 +78,16 @@ export default function Categorias() {
   const productosCat = useMemo(() => {
     if (!categoriaActiva) return [];
     return productos.filter((p) => {
-      const matchCat = (p.categoria || "").toLowerCase() === categoriaActiva.nombre.toLowerCase();
+      const matchCat = p.categoria_id === categoriaActiva.id;
       const matchBusq = !busquedaProducto ||
         p.nombre?.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
-        p.codigo?.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
-        (p.proveedor || p.laboratorio || "")?.toLowerCase().includes(busquedaProducto.toLowerCase());
+        (p.marca || "").toLowerCase().includes(busquedaProducto.toLowerCase()) ||
+        (p.laboratorio || "").toLowerCase().includes(busquedaProducto.toLowerCase());
       return matchCat && matchBusq;
     });
   }, [categoriaActiva, productos, busquedaProducto]);
 
-  // Enriquecer categorías con conteo real desde productos cargados
-  const categoriasConConteo = useMemo(() =>
-    filtradas.map((c) => ({
-      ...c,
-      total_productos: productos.filter((p) =>
-        (p.categoria || "").toLowerCase() === c.nombre.toLowerCase()
-      ).length,
-    }))
-  , [filtradas, productos]);
+  const categoriasConConteo = filtradas;
 
   return (
     <div>
@@ -109,43 +117,7 @@ export default function Categorias() {
             <div className="formulario-grid" style={{ gridTemplateColumns: "1fr" }}>
               <div className="campo">
                 <label>Nombre *</label>
-                <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Limpieza, Jabones, Menestras..." />
-              </div>
-              <div className="campo">
-                <label>Descripción</label>
-                <input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} placeholder="Descripción opcional" />
-              </div>
-              <div className="campo">
-                <label>Ícono</label>
-                <div className="iconos-grid">
-                  {ICONOS.map((ic) => (
-                    <button key={ic} type="button"
-                      className={`icono-btn ${form.icono === ic ? "icono-activo" : ""}`}
-                      onClick={() => setForm({ ...form, icono: ic })}>{ic}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="campo">
-                <label>Color</label>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                  {COLORES_PRESET.map((c) => (
-                    <button key={c} type="button"
-                      style={{ width: "28px", height: "28px", borderRadius: "50%", background: c, border: form.color === c ? "3px solid #0f172a" : "2px solid transparent", cursor: "pointer" }}
-                      onClick={() => setForm({ ...form, color: c })} />
-                  ))}
-                  <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })}
-                    style={{ width: "36px", height: "36px", borderRadius: "50%", border: "none", cursor: "pointer", padding: 0 }} />
-                </div>
-              </div>
-              <div className="campo">
-                <label>Vista previa</label>
-                <div className="cat-card-preview" style={{ borderLeft: `4px solid ${form.color}` }}>
-                  <span className="cat-icono" style={{ background: form.color + "22", color: form.color }}>{form.icono}</span>
-                  <div>
-                    <div className="cat-nombre">{form.nombre || "Nombre de categoría"}</div>
-                    {form.descripcion && <div className="cat-desc">{form.descripcion}</div>}
-                  </div>
-                </div>
+                <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Analgésicos, Antibióticos, Vitaminas..." autoFocus />
               </div>
               {mensaje && <p className="mensaje">{mensaje}</p>}
               <div className="modal-acciones">
@@ -227,57 +199,37 @@ export default function Categorias() {
                   <table className="tabla">
                     <thead>
                       <tr>
-                        <th>Código</th>
                         <th>Nombre / Marca</th>
-                        <th>Proveedor</th>
+                        <th>Laboratorio</th>
                         <th>Stock</th>
                         <th>Unidad</th>
                         <th>Precio venta</th>
-                        <th>Costo</th>
-                        <th>Vencimiento</th>
+                        <th>Último costo</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {productosCat.map((p) => {
-                        const venc = p.fecha_vencimiento ? new Date(p.fecha_vencimiento) : null;
-                        const hoy = new Date();
-                        const diasVenc = venc ? Math.ceil((venc - hoy) / 86400000) : null;
-                        const alertaVenc = diasVenc !== null && diasVenc <= 30;
-
-                        return (
-                          <tr key={p.id}>
-                            <td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{p.codigo}</td>
-                            <td>
-                              <div style={{ fontWeight: 600, color: "#0f172a" }}>{p.nombre}</div>
-                              {(p.proveedor || p.laboratorio) && (
-                                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{p.proveedor || p.laboratorio}</div>
-                              )}
-                            </td>
-                            <td style={{ fontSize: "0.83rem", color: "#475569" }}>{p.proveedor || p.laboratorio || "—"}</td>
-                            <td>
-                              <span style={{
-                                fontWeight: 700,
-                                color: Number(p.stock_actual) <= Number(p.stock_minimo) ? "#dc2626" : "#16a34a"
-                              }}>
-                                {p.stock_actual ?? 0}
-                              </span>
-                            </td>
-                            <td><span className="tag-presentacion">{p.unidad_base || "unidad"}</span></td>
-                            <td style={{ fontWeight: 700, color: "#0f6df2" }}>{fmt(p.precio_venta)}</td>
-                            <td style={{ color: "#64748b" }}>{fmt(p.costo)}</td>
-                            <td>
-                              {venc ? (
-                                <span style={{
-                                  fontSize: "0.8rem", fontWeight: 600,
-                                  color: diasVenc < 0 ? "#dc2626" : alertaVenc ? "#d97706" : "#16a34a"
-                                }}>
-                                  {diasVenc < 0 ? "⚠️ Vencido" : alertaVenc ? `⚠️ ${diasVenc}d` : venc.toLocaleDateString()}
-                                </span>
-                              ) : <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>Sin fecha</span>}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {productosCat.map((p) => (
+                        <tr key={p.id}>
+                          <td>
+                            <div style={{ fontWeight: 600, color: "#0f172a" }}>{p.nombre}</div>
+                            {p.marca && (
+                              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{p.marca}</div>
+                            )}
+                          </td>
+                          <td style={{ fontSize: "0.83rem", color: "#475569" }}>{p.laboratorio || "—"}</td>
+                          <td>
+                            <span style={{
+                              fontWeight: 700,
+                              color: Number(p.stock_actual) <= Number(p.stock_minimo) ? "#dc2626" : "#16a34a"
+                            }}>
+                              {p.stock_actual ?? 0}
+                            </span>
+                          </td>
+                          <td><span className="tag-presentacion">{p.unidad_base || "unidad"}</span></td>
+                          <td style={{ fontWeight: 700, color: "#0f6df2" }}>{fmt(p.precios_presentacion?.Unidad)}</td>
+                          <td style={{ color: "#64748b" }}>{fmt(p.ultimo_costo)}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

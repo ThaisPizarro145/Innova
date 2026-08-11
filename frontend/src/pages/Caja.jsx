@@ -1,5 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
-import { getCajaMovimientos, crearCajaMovimiento, eliminarCajaMovimiento, getVentas, getCompras } from "../services/api";
+import {
+  getCajaMovimientos, crearCajaMovimiento, eliminarCajaMovimiento, getVentas, getCompras,
+  getAperturaActiva, abrirCaja, cerrarCaja, getCajaAperturas,
+} from "../services/api";
 import { exportarExcel } from "../utils/exportExcel";
 
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
@@ -77,14 +80,44 @@ export default function Caja() {
   const [filtroHasta, setFiltroHasta] = useState(hoy());
   const [mensaje, setMensaje] = useState("");
 
+  // Apertura / cierre de caja
+  const [apertura, setApertura] = useState(null);
+  const [aperturas, setAperturas] = useState([]);
+  const [mostrarApertura, setMostrarApertura] = useState(false);
+  const [montoInicial, setMontoInicial] = useState("");
+  const [mostrarCierre, setMostrarCierre] = useState(false);
+  const [montoContado, setMontoContado] = useState("");
+  const [ultimoCierre, setUltimoCierre] = useState(null);
+
   const cargar = async () => {
     try {
-      const [mov, vts, cmp] = await Promise.all([getCajaMovimientos(), getVentas(), getCompras()]);
+      const [mov, vts, cmp, act, hist] = await Promise.all([
+        getCajaMovimientos(), getVentas(), getCompras(), getAperturaActiva(), getCajaAperturas(),
+      ]);
       setMovimientos(mov); setVentas(vts); setCompras(cmp);
+      setApertura(act); setAperturas(hist);
     } catch (e) { setMensaje(e.message); }
   };
 
   useEffect(() => { cargar(); }, []);
+
+  const handleAbrirCaja = async () => {
+    try {
+      await abrirCaja({ monto_inicial: Number(montoInicial) || 0 });
+      setMontoInicial(""); setMostrarApertura(false);
+      cargar();
+    } catch (e) { setMensaje(e.message); }
+  };
+
+  const handleCerrarCaja = async () => {
+    if (!montoContado) { setMensaje("Ingresa el monto contado en caja."); return; }
+    try {
+      const resultado = await cerrarCaja({ monto_contado: Number(montoContado) });
+      setUltimoCierre(resultado);
+      setMontoContado(""); setMostrarCierre(false);
+      cargar();
+    } catch (e) { setMensaje(e.message); }
+  };
 
   const guardar = async () => {
     if (!form.monto || Number(form.monto) <= 0) { setMensaje("Ingresa un monto válido."); return; }
@@ -159,6 +192,91 @@ export default function Caja() {
           </button>
         </div>
       </div>
+
+      {/* Apertura / cierre de turno */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px",
+        background: apertura ? "#f0fdf4" : "#fef2f2", border: `1px solid ${apertura ? "#bbf7d0" : "#fecaca"}`,
+        borderRadius: "10px", padding: "12px 16px", marginBottom: "16px",
+      }}>
+        {apertura ? (
+          <span style={{ color: "#16a34a", fontWeight: 600, fontSize: "0.88rem" }}>
+            🟢 Caja abierta desde {new Date(apertura.fecha).toLocaleString()} · Monto inicial: {fmt(apertura.monto_inicial)}
+          </span>
+        ) : (
+          <span style={{ color: "#dc2626", fontWeight: 600, fontSize: "0.88rem" }}>🔴 Caja cerrada</span>
+        )}
+        {apertura ? (
+          <button type="button" className="btn-nuevo" onClick={() => setMostrarCierre(true)}>🔒 Cerrar caja</button>
+        ) : (
+          <button type="button" className="btn-nuevo" onClick={() => setMostrarApertura(true)}>🔓 Abrir caja</button>
+        )}
+      </div>
+
+      {ultimoCierre && (
+        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "14px 16px", marginBottom: "16px" }}>
+          <div style={{ fontWeight: 700, color: "#1d4ed8", marginBottom: "8px" }}>📄 Resumen del último cierre</div>
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", fontSize: "0.85rem" }}>
+            <span>Total ventas: <strong>{fmt(ultimoCierre.total_ventas)}</strong></span>
+            <span>Efectivo: <strong>{fmt(ultimoCierre.total_efectivo)}</strong></span>
+            <span>Tarjeta: <strong>{fmt(ultimoCierre.total_tarjeta)}</strong></span>
+            <span>Yape/Plin: <strong>{fmt(ultimoCierre.total_yape_plin)}</strong></span>
+            <span>Gastos: <strong>{fmt(ultimoCierre.total_gastos)}</strong></span>
+            <span>Saldo final esperado: <strong>{fmt(ultimoCierre.saldo_final)}</strong></span>
+            <span style={{ color: Number(ultimoCierre.diferencia) === 0 ? "#16a34a" : "#dc2626" }}>
+              Diferencia: <strong>{fmt(ultimoCierre.diferencia)}</strong>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Modal abrir caja */}
+      {mostrarApertura && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setMostrarApertura(false)}>
+          <div className="modal-box" style={{ maxWidth: "400px" }}>
+            <div className="modal-header">
+              <h2>🔓 Abrir caja</h2>
+              <button type="button" className="btn-cerrar" onClick={() => setMostrarApertura(false)}>✕</button>
+            </div>
+            <div className="formulario-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="campo">
+                <label>Monto inicial (S/)</label>
+                <input type="number" min="0" step="0.01" value={montoInicial}
+                  onChange={(e) => setMontoInicial(e.target.value)} placeholder="0.00" autoFocus />
+              </div>
+              {mensaje && <p className="mensaje">{mensaje}</p>}
+              <div className="modal-acciones">
+                <button type="button" className="btn-nuevo" onClick={handleAbrirCaja}>💾 Abrir</button>
+                <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setMostrarApertura(false)}>Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal cerrar caja */}
+      {mostrarCierre && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setMostrarCierre(false)}>
+          <div className="modal-box" style={{ maxWidth: "400px" }}>
+            <div className="modal-header">
+              <h2>🔒 Cerrar caja</h2>
+              <button type="button" className="btn-cerrar" onClick={() => setMostrarCierre(false)}>✕</button>
+            </div>
+            <div className="formulario-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="campo">
+                <label>Monto contado en caja (S/)</label>
+                <input type="number" min="0" step="0.01" value={montoContado}
+                  onChange={(e) => setMontoContado(e.target.value)} placeholder="0.00" autoFocus />
+              </div>
+              {mensaje && <p className="mensaje">{mensaje}</p>}
+              <div className="modal-acciones">
+                <button type="button" className="btn-nuevo" onClick={handleCerrarCaja}>💾 Cerrar caja</button>
+                <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setMostrarCierre(false)}>Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cards de resumen */}
       <div className="caja-resumen-cards">
@@ -257,6 +375,45 @@ export default function Caja() {
           </tbody>
         </table>
       </div>
+
+      {/* Historial de aperturas y cierres */}
+      {aperturas.length > 0 && (
+        <>
+          <h2 style={{ marginTop: "24px", marginBottom: "10px" }}>Historial de aperturas y cierres</h2>
+          <div className="tabla-wrapper">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Apertura</th><th>Monto inicial</th><th>Cierre</th><th>Total ventas</th>
+                  <th>Efectivo</th><th>Tarjeta</th><th>Yape/Plin</th><th>Gastos</th><th>Diferencia</th><th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aperturas.map((a) => (
+                  <tr key={a.id}>
+                    <td>{new Date(a.fecha).toLocaleString()}</td>
+                    <td>{fmt(a.monto_inicial)}</td>
+                    <td>{a.fecha_cierre ? new Date(a.fecha_cierre).toLocaleString() : "—"}</td>
+                    <td>{a.total_ventas != null ? fmt(a.total_ventas) : "—"}</td>
+                    <td>{a.total_efectivo != null ? fmt(a.total_efectivo) : "—"}</td>
+                    <td>{a.total_tarjeta != null ? fmt(a.total_tarjeta) : "—"}</td>
+                    <td>{a.total_yape_plin != null ? fmt(a.total_yape_plin) : "—"}</td>
+                    <td>{a.total_gastos != null ? fmt(a.total_gastos) : "—"}</td>
+                    <td style={{ color: a.diferencia == null ? undefined : (Number(a.diferencia) === 0 ? "#16a34a" : "#dc2626") }}>
+                      {a.diferencia != null ? fmt(a.diferencia) : "—"}
+                    </td>
+                    <td>
+                      <span className="estado-badge" style={{ background: a.estado === "ABIERTA" ? "#dcfce7" : "#f1f5f9", color: a.estado === "ABIERTA" ? "#16a34a" : "#64748b" }}>
+                        {a.estado}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Modal nuevo movimiento */}
       {mostrarForm && (

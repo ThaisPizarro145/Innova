@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { crearVenta, getProductos, getVentas, anularVenta, eliminarVenta, getClientes, getCategoriasConfig } from "../services/api";
+import { crearVenta, getProductos, getVentas, anularVenta, eliminarVenta, getClientes } from "../services/api";
 import { useConsultaDoc } from "../hooks/useConsultaDoc";
 import { getEmpresa } from "../services/empresa";
 import { cantidadEnUnidadesBase, stockAmigable } from "../utils/stock";
@@ -64,82 +64,39 @@ const TIPOS_COMPROBANTE = [
   { value: "FACTURA",    label: "Factura Electrónica", icon: "📄", serial: "F001", requiereRuc: true },
 ];
 
-function getPrecioPresent(producto, presentacion, categoriasConfig = []) {
+function getPrecioPresent(producto, presentacion) {
   const pp = producto.precios_presentacion || {};
-  // Buscar por clave exacta primero, luego case-insensitive
   if (pp[presentacion] !== undefined && pp[presentacion] !== "" && Number(pp[presentacion]) > 0) {
     return Number(pp[presentacion]);
   }
-  const keyLower = presentacion.toLowerCase();
-  for (const [k, v] of Object.entries(pp)) {
-    if (k.toLowerCase() === keyLower && v !== "" && Number(v) > 0) return Number(v);
-  }
-
-  // Intentar calcular el precio desde la config de categoría + precio base
-  const precioBase = Number(producto.precio_venta || 0);
-  if (precioBase > 0) {
-    const cat = producto.categoria
-      ? categoriasConfig.find((c) => c.nombre === producto.categoria)
-      : null;
-    const conv = cat?.conversiones?.[keyLower] || {};
-    if (conv.tipo === "conteo" && conv.unidades > 0) {
-      return +(precioBase * conv.unidades).toFixed(2);
-    }
-    if (conv.tipo === "peso" && conv.kg > 0) {
-      return +(precioBase * conv.kg).toFixed(2);
-    }
-  }
-
-  // Fallback: precio_venta solo para presentación base
-  return precioBase;
+  // Fallback: precio de la presentación Unidad
+  return Number(pp.Unidad || 0);
 }
 
-function permiteDecimalesPresentacion(producto, presentacion, categoriasConfig = []) {
-  const cat = producto.categoria
-    ? categoriasConfig.find((c) => c.nombre === producto.categoria)
-    : null;
-  const conv = cat?.conversiones?.[presentacion] || {};
-  return conv.tipo === "peso" || conv.tipo === "fraccion" || conv.tipo === "multinivel";
-}
-
-function getPresentacionesDisponibles(producto, categoriasConfig = []) {
-  // 1. Buscar la config de categoría del producto
-  const cat = producto.categoria
-    ? categoriasConfig.find((c) => c.nombre === producto.categoria)
-    : null;
-
-  // 2. Si hay config con unidades_venta, esas son las presentaciones de venta
-  //    (la unidad de compra NO limita las opciones de venta)
-  if (cat && Array.isArray(cat.unidades_venta) && cat.unidades_venta.length > 0) {
-    return cat.unidades_venta;
-  }
-
-  // 3. Fallback: leer las claves de precios_presentacion con precio válido
+function getPresentacionesDisponibles(producto) {
   const pp = producto.precios_presentacion || {};
   const disponibles = Object.entries(pp)
     .filter(([, v]) => v !== undefined && v !== "" && v !== null && Number(v) > 0)
     .map(([k]) => k);
 
   if (disponibles.length === 0) {
-    return [producto.unidad_base || "unidad"];
+    return ["Unidad"];
   }
   return disponibles;
 }
 
 /* ── Modal presentación ── */
-function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }) {
-  const presentaciones = getPresentacionesDisponibles(producto, categoriasConfig);
+function ModalPresentacion({ producto, onConfirmar, onCerrar }) {
+  const presentaciones = getPresentacionesDisponibles(producto);
   const [presentacion, setPresentacion] = useState(presentaciones[0]);
   const [cantidad, setCantidad] = useState(1);
-  const [precio, setPrecio] = useState(() => getPrecioPresent(producto, presentaciones[0], categoriasConfig));
+  const [precio, setPrecio] = useState(() => getPrecioPresent(producto, presentaciones[0]));
 
   // Actualizar precio cuando cambia la presentación
   const handlePresentacion = (p) => {
     setPresentacion(p);
-    setPrecio(getPrecioPresent(producto, p, categoriasConfig));
-    if (!permiteDecimalesPresentacion(producto, p, categoriasConfig)) {
-      setCantidad((c) => Math.max(1, Math.round(c)));
-    }
+    setPrecio(getPrecioPresent(producto, p));
+    setCantidad((c) => Math.max(1, Math.round(c)));
   };
 
   const subtotal = Number(precio || 0) * Number(cantidad || 0);
@@ -151,33 +108,6 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
   const cantidadEnBase = cantidadEnUnidadesBase(producto, presentacion, Number(cantidad || 0));
   const sinStock = cantidadEnBase > stockBase;
 
-  // Calcular precio unitario mínimo para mostrar desglose
-  const cat = producto.categoria
-    ? categoriasConfig.find((c) => c.nombre === producto.categoria)
-    : null;
-  const convPres = cat?.conversiones?.[presentacion] || {};
-  const permiteDecimales = convPres.tipo === "peso" || convPres.tipo === "fraccion" || convPres.tipo === "multinivel";
-
-  let desglosePrecio = null;
-  if (convPres.tipo === "conteo" && convPres.unidades > 0) {
-    const precioUnit = Number(precio || 0) / convPres.unidades;
-    desglosePrecio = `S/ ${precioUnit.toFixed(2)} por unidad`;
-  } else if (convPres.tipo === "peso" && convPres.kg > 0) {
-    const precioKg = Number(precio || 0) / convPres.kg;
-    desglosePrecio = `S/ ${precioKg.toFixed(2)} por kg`;
-  } else if (convPres.tipo === "fraccion" && convPres.factor) {
-    const baseName = convPres.base || "saco";
-    const baseConv = cat?.conversiones?.[baseName] || {};
-    const kgTotal = (baseConv.kg || 0) * convPres.factor;
-    if (kgTotal > 0) {
-      const precioKg = Number(precio || 0) / kgTotal;
-      desglosePrecio = `= ${kgTotal} kg → S/ ${precioKg.toFixed(2)}/kg`;
-    }
-  } else if (convPres.tipo === "multinivel" && convPres.kg_por_empaque > 0) {
-    const precioKg = Number(precio || 0) / convPres.kg_por_empaque;
-    desglosePrecio = `S/ ${precioKg.toFixed(2)} por kg`;
-  }
-
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onCerrar()}>
       <div className="modal-box" style={{ maxWidth: "380px" }}>
@@ -187,24 +117,21 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
         </div>
         <div style={{ marginBottom: "8px" }}>
           <strong>{producto.nombre}</strong>
-          <span style={{ color: "#64748b", fontSize: "0.85rem", marginLeft: "8px" }}>{producto.codigo}</span>
+          {producto.marca && <span style={{ color: "#64748b", fontSize: "0.85rem", marginLeft: "8px" }}>{producto.marca}</span>}
         </div>
         <div className="formulario-grid">
           <div className="campo"><label>Presentación</label>
             <select value={presentacion} onChange={(e) => handlePresentacion(e.target.value)}>
               {presentaciones.map((p) => (
                 <option key={p} value={p}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)} — {fmt(getPrecioPresent(producto, p, categoriasConfig))}
+                  {p} — {fmt(getPrecioPresent(producto, p))}
                 </option>
               ))}
             </select>
           </div>
           <div className="campo"><label>Cantidad</label>
-            <input type="number" min={permiteDecimales ? "0.01" : "1"} step={permiteDecimales ? "0.01" : "1"} value={cantidad}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setCantidad(permiteDecimales ? val : Math.round(val));
-              }} />
+            <input type="number" min="1" step="1" value={cantidad}
+              onChange={(e) => setCantidad(Math.round(Number(e.target.value)))} />
             <span style={{ fontSize: "0.72rem", color: sinStock ? "#dc2626" : "#64748b" }}>
               {sinStock ? "⚠️ Stock insuficiente" : `Disponible: ${stockEnPresentacion % 1 === 0 ? stockEnPresentacion : stockEnPresentacion.toFixed(2)} ${presentacion}`}
             </span>
@@ -216,15 +143,10 @@ function ModalPresentacion({ producto, categoriasConfig, onConfirmar, onCerrar }
               onChange={(e) => setPrecio(Number(e.target.value))}
               style={{ fontWeight: 700, color: "#0f6df2", fontSize: "1.1rem", border: "2px solid #bfdbfe", background: "#eff6ff" }}
             />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px", flexWrap: "wrap", gap: "4px" }}>
+            <div style={{ marginTop: "4px" }}>
               <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
-                Sugerido: {fmt(getPrecioPresent(producto, presentacion, categoriasConfig))} / {presentacion}
+                Sugerido: {fmt(getPrecioPresent(producto, presentacion))} / {presentacion}
               </span>
-              {desglosePrecio && (
-                <span style={{ fontSize: "0.72rem", color: "#7c3aed", background: "#f5f3ff", borderRadius: "4px", padding: "2px 6px" }}>
-                  💡 {desglosePrecio}
-                </span>
-              )}
             </div>
           </div>
           <div className="campo campo-full"><label>Subtotal</label>
@@ -441,7 +363,6 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onImprim
 function Ventas() {
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
-  const [categoriasConfig, setCategoriasConfig] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [formaPago, setFormaPago] = useState("Efectivo");
   const [carrito, setCarrito] = useState([]);
@@ -505,7 +426,7 @@ function Ventas() {
 
   const { consultando, errorConsulta, consultarDoc, limpiarConsulta } = useConsultaDoc(alRecibirDatosDoc);
 
-  useEffect(() => { cargarProductos(); cargarVentas(); getCategoriasConfig().then(setCategoriasConfig).catch(() => {}); }, []);
+  useEffect(() => { cargarProductos(); cargarVentas(); }, []);
   useEffect(() => { cargarVentas(); }, [filtroFechaDesde, filtroFechaHasta]);
 
   const cargarProductos = async (q = "") => {
@@ -622,14 +543,10 @@ function Ventas() {
         : (busquedaActual || "Cliente general");
 
       const itemsComprobante = itemsCarrito.map((i) => {
-        const prod = productos.find((p) => p.id === i.producto_id);
         return {
-          codigo: prod?.codigo || "",
           nombre: i.nombre,
           cantidad: i.cantidad,
           presentacion: i.presentacion,
-          lote: prod?.lote || "",
-          fecha_vencimiento: prod?.fecha_vencimiento || null,
           precio: Number(i.precio_unitario),
           total: Number(i.precio_unitario * i.cantidad - i.descuento),
         };
@@ -696,7 +613,6 @@ function Ventas() {
     <div>
       {productoParaAgregar && (
         <ModalPresentacion producto={productoParaAgregar}
-          categoriasConfig={categoriasConfig}
           onConfirmar={confirmarAgregarPresent}
           onCerrar={() => setProductoParaAgregar(null)} />
       )}
@@ -811,7 +727,7 @@ function Ventas() {
         {productos.length === 0
           ? <p style={{ gridColumn: "1/-1", color: "#64748b" }}>No hay productos disponibles</p>
           : productos.map((p) => {
-            const presentaciones = getPresentacionesDisponibles(p, categoriasConfig);
+            const presentaciones = getPresentacionesDisponibles(p);
             const enCarrito = carrito.filter((i) => i.producto_id === p.id);
             return (
               <div key={p.id} className="producto-card" onClick={() => setProductoParaAgregar(p)}>
@@ -820,11 +736,11 @@ function Ventas() {
                     <span className="producto-nombre">{p.nombre}</span>
                     {enCarrito.length > 0 && <span className="producto-en-carrito producto-en-carrito-inline">✓ {enCarrito.reduce((a, i) => a + i.cantidad, 0)}</span>}
                   </div>
-                  <span className="producto-codigo">{p.codigo}</span>
+                  {p.marca && <span className="producto-codigo">{p.marca}</span>}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", marginTop: "4px" }}>
                     {presentaciones.map((pres) => (
-                      <span key={pres} className="tag-presentacion" title={`Precio: ${fmt(getPrecioPresent(p, pres, categoriasConfig))}`}>
-                        {pres} {fmt(getPrecioPresent(p, pres, categoriasConfig))}
+                      <span key={pres} className="tag-presentacion" title={`Precio: ${fmt(getPrecioPresent(p, pres))}`}>
+                        {pres} {fmt(getPrecioPresent(p, pres))}
                       </span>
                     ))}
                   </div>
@@ -949,16 +865,12 @@ function Ventas() {
 }
 
 /** Mapea los detalles guardados en backend a los ítems que esperan los comprobantes. */
-function itemsDesdeVenta(venta, productos = []) {
+function itemsDesdeVenta(venta) {
   return (venta.detalles || []).map((d) => {
-    const prod = productos.find((p) => p.id === d.producto_id);
     return {
-      codigo: prod?.codigo || "",
       nombre: d.nombre_producto || d.nombre || `Producto #${d.producto_id}`,
       cantidad: d.cantidad,
-      presentacion: d.presentacion || "UND",
-      lote: d.lote || "",
-      fecha_vencimiento: d.fecha_vencimiento || null,
+      presentacion: d.presentacion || "Unidad",
       precio: d.precio_unitario,
       total: d.total || d.precio_unitario * d.cantidad,
     };

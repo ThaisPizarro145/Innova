@@ -57,121 +57,43 @@ class CajaMovimiento(Base):
     updated_at = Column(DateTime, default=now, onupdate=now)
 
 
-class CategoriaConfig(Base):
-    """
-    Configuración de unidades y conversiones por categoría de producto.
-
-    Estructura de unidades_compra (JSON):
-      ["saco", "paquete"]  → nombres de las unidades válidas para comprar
-
-    Estructura de unidades_venta (JSON):
-      ["kilo", "medio_saco", "saco"]  → nombres de las unidades válidas para vender
-
-    Estructura de conversiones (JSON):
-      {
-        "saco":       { "tipo": "peso",    "kg": 100 },
-        "medio_saco": { "tipo": "fraccion","base": "saco", "factor": 0.5 },
-        "caja":       { "tipo": "conteo",  "unidades": 12 },
-        "paquete":    { "tipo": "multinivel", "nivel2": "maple", "nivel2_cantidad": 8, "kg_por_empaque": 19.2 },
-        "maple":      { "tipo": "conteo",  "unidades": 30 },
-        "kilo":       { "tipo": "base_peso" },
-        "unidad":     { "tipo": "base_conteo" },
-      }
-
-    tipo_flujo_default: flujo de compra sugerido para productos de esta categoría
-      "caja_unidad" | "saco_kilo" | "saco_unidad" | "multinivel"
-    """
-    __tablename__ = "categoria_config"
-
-    id = Column(Integer, primary_key=True, index=True)
-    # Nombre de la categoría — debe coincidir con Producto.categoria
-    nombre = Column(String(150), unique=True, nullable=False, index=True)
-    descripcion = Column(String(300), nullable=True)
-    icono = Column(String(20), default="📦")
-    color = Column(String(20), default="#0f6df2")
-
-    # Unidades permitidas para compra y venta
-    unidades_compra = Column(JSON, nullable=False, default=list)   # ["saco", "caja"]
-    unidades_venta  = Column(JSON, nullable=False, default=list)   # ["kilo", "saco"]
-
-    # Tabla de conversiones entre unidades
-    conversiones = Column(JSON, nullable=False, default=dict)
-
-    # Flujo de compra por defecto para productos de esta categoría
-    tipo_flujo_default = Column(String(30), nullable=True)         # saco_kilo, caja_unidad…
-
-    # Empaque mayor y unidad menor por defecto
-    empaque_mayor_default   = Column(String(50), nullable=True)    # "Saco", "Caja", "Paquete"
-    unidad_menor_default    = Column(String(50), nullable=True)    # "Kilo", "Unidad"
-    nivel2_nombre_default   = Column(String(50), nullable=True)    # "Maple" (solo multinivel)
-
-    # Margen de ganancia sugerido para esta categoría
-    margen_ganancia_default = Column(Float, default=20.0)
-
-    activo    = Column(Boolean, default=True)
-    eliminado = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=now)
-    updated_at = Column(DateTime, default=now, onupdate=now)
-
-
 class Producto(Base):
+    """Datos fijos/maestros del medicamento. El costo, lote, fecha de
+    vencimiento y stock NO viven aquí: pertenecen a Compras (ver `Lote`) y se
+    consultan de forma agregada/calculada (ver `crud.py`)."""
     __tablename__ = "productos"
-    __table_args__ = (
-        # Único solo entre productos NO eliminados: permite reingresar un
-        # código que quedó "libre" tras un borrado lógico sin chocar contra
-        # el UNIQUE global (evita el error 500 al recrear un producto).
-        Index(
-            "ux_productos_codigo_activo",
-            "codigo",
-            unique=True,
-            postgresql_where=text("eliminado = false"),
-        ),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
-    codigo = Column(String(80), index=True, nullable=True)
     nombre = Column(String(200), nullable=False)
-    categoria = Column(String(150), nullable=True)
-    proveedor = Column(String(150), nullable=True)
+    categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
     laboratorio = Column(String(150), nullable=True)
-    lote = Column(String(100), nullable=True)
-    fecha_vencimiento = Column(Date, nullable=True)
-    costo = Column(Float, default=0.0)
-    precio_venta = Column(Float, default=0.0)
+    marca = Column(String(150), nullable=True)
+    principio_activo = Column(String(200), nullable=True)
+    concentracion = Column(String(100), nullable=True)
+    forma_farmaceutica = Column(String(100), nullable=True)
+    presentacion_comercial = Column(String(150), nullable=True)
     iva = Column(Boolean, default=False)
-    utilidad = Column(Float, default=0.0)
-    stock_actual = Column(Float, default=0.0)
     stock_minimo = Column(Float, default=0.0)
     unidad_base = Column(String(30), default="unidad")
+    # Precio de venta VIGENTE por presentación (se recalcula en cada compra):
+    # { "Caja": x, "Unidad": y, "Blister": z }
     precios_presentacion = Column(JSON, nullable=True, default=dict)
 
-    # ── Configuración de empaque / flujo mayorista‑minorista (Módulo 1) ────
-    # tipo_flujo: "caja_unidad" | "saco_kilo" | "saco_unidad" | "multinivel"
-    tipo_flujo = Column(String(30), nullable=True)
-    # Nombre personalizable del empaque mayor (Caja, Saco, Paquete…)
-    nombre_empaque_mayor = Column(String(50), nullable=True)
-    # nombre de la unidad menor (Unidad, Kilo, Bolsa, Maple…)
-    nombre_unidad_menor = Column(String(50), nullable=True)
-    # Nombre del nivel intermedio si aplica (Maple)
-    nombre_nivel2 = Column(String(50), nullable=True)
-    # Factores de conversión y pesos almacenados como JSON
-    # Estructura: {
-    #   "unidades_por_empaque": 12,   // caja_unidad / saco_unidad
-    #   "kg_por_empaque": 50,         // saco_kilo / multinivel
-    #   "nivel2_por_empaque": 8,      // multinivel (maples/paquete)
-    #   "unidades_por_nivel2": 30,    // multinivel (huevos/maple)
-    # }
-    equivalencias = Column(JSON, nullable=True, default=dict)
-    # Margen de ganancia por defecto para este producto (%)
-    margen_ganancia_default = Column(Float, default=20.0)
+    # ── Presentaciones fijas: Caja / Unidad / Blíster ───────────────────────
+    # Cuántas unidades base contiene una Caja / un Blíster de este producto.
+    # Null = esa presentación no aplica para este producto.
+    unidades_por_caja = Column(Float, nullable=True)
+    unidades_por_blister = Column(Float, nullable=True)
 
     activo = Column(Boolean, default=True)
     eliminado = Column(Boolean, default=False)
     created_at = Column(DateTime, default=now)
     updated_at = Column(DateTime, default=now, onupdate=now)
 
+    categoria = relationship("Categoria")
     movimientos = relationship("MovimientoInventario", back_populates="producto")
     detalles_venta = relationship("VentaDetalle", back_populates="producto")
+    lotes = relationship("Lote", back_populates="producto")
 
 
 class Cliente(Base):
@@ -221,6 +143,8 @@ class MovimientoInventario(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     producto_id = Column(Integer, ForeignKey("productos.id"), nullable=False)
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
+    venta_id = Column(Integer, ForeignKey("ventas.id"), nullable=True)
     tipo = Column(String(50), nullable=False)
     cantidad = Column(Float, nullable=False, default=0.0)
     costo_unitario = Column(Float, default=0.0)
@@ -232,6 +156,7 @@ class MovimientoInventario(Base):
     stock_despues = Column(Float, default=0.0)
 
     producto = relationship("Producto", back_populates="movimientos")
+    lote_obj = relationship("Lote")
 
 
 class ContadorDocumento(Base):
@@ -283,8 +208,6 @@ class VentaDetalle(Base):
     descuento = Column(Float, default=0.0)
     subtotal = Column(Float, default=0.0)
     total = Column(Float, default=0.0)
-    lote = Column(String(100), nullable=True)
-    fecha_vencimiento = Column(Date, nullable=True)
     presentacion = Column(String(30), nullable=True, default="unidad")
     nombre_producto = Column(String(200), nullable=True)  # guardado en el momento de la venta
 
@@ -316,8 +239,12 @@ class Compra(Base):
     __tablename__ = "compras"
 
     id = Column(Integer, primary_key=True, index=True)
-    numero = Column(String(50), nullable=True)           # Nro. factura / guía proveedor
-    proveedor = Column(String(200), nullable=True)
+    numero = Column(String(50), nullable=True)           # Nro. de comprobante del proveedor
+    tipo_comprobante = Column(String(30), nullable=True)  # Factura | Boleta | Guía
+    serie = Column(String(10), nullable=True)
+    moneda = Column(String(10), nullable=True, default="PEN")  # solo informativo, sin conversión
+    proveedor_id = Column(Integer, ForeignKey("proveedores.id"), nullable=True)
+    proveedor_nombre = Column(String(200), nullable=True)  # snapshot al momento de la compra
     fecha = Column(DateTime, default=now)
     subtotal = Column(Float, default=0.0)
     igv = Column(Float, default=0.0)
@@ -327,63 +254,118 @@ class Compra(Base):
     created_at = Column(DateTime, default=now)
     updated_at = Column(DateTime, default=now, onupdate=now)
 
+    proveedor = relationship("Proveedor")
     detalles = relationship("CompraDetalle", back_populates="compra", cascade="all, delete-orphan")
 
 
 class CompraDetalle(Base):
-    """
-    Línea de detalle de compra con toda la lógica de desglose mayorista/minorista.
-
-    Tipos de presentación soportados:
-      - caja_unidad    → Caso A: Aceite (caja de N unidades)
-      - saco_kilo      → Caso B: Menestras (saco con peso en kg)
-      - saco_unidad    → Caso C: Sal (saco con N bolsas internas)
-      - multinivel     → Caso D: Huevos (paquete → maples → kg)
-    """
+    """Línea de detalle de compra: presentación fija Caja | Unidad | Blíster."""
     __tablename__ = "compras_detalles"
 
     id = Column(Integer, primary_key=True, index=True)
     compra_id = Column(Integer, ForeignKey("compras.id"), nullable=False)
     producto_id = Column(Integer, ForeignKey("productos.id"), nullable=False)
 
-    # ── Datos del empaque comprado ──────────────────────────────────────────
-    tipo_presentacion = Column(String(30), nullable=False, default="caja_unidad")
-    # Cantidad de empaques comprados (cajas, sacos, paquetes, etc.)
-    cantidad_empaque = Column(Float, default=1.0)
-    # Nombre del empaque mayor (Caja, Saco, Paquete…)
-    nombre_empaque = Column(String(50), default="Caja")
-    # Precio pagado por UN empaque mayor
-    precio_empaque = Column(Float, default=0.0)
+    # ── Datos de la presentación comprada ───────────────────────────────────
+    presentacion = Column(String(20), nullable=False, default="Unidad")  # Caja | Unidad | Blister
+    # Cantidad de empaques/unidades comprados en esa presentación
+    cantidad_presentacion = Column(Float, default=1.0)
+    # Snapshot del factor de conversión usado (unidades base por presentación; 1 para Unidad)
+    unidades_por_presentacion = Column(Float, default=1.0)
+    # Precio pagado por UNA unidad de esa presentación
+    precio_presentacion = Column(Float, default=0.0)
 
-    # ── Contenido del empaque ───────────────────────────────────────────────
-    # Unidades/bolsas internas por empaque (Casos A, C, D‑maples)
-    unidades_por_empaque = Column(Float, nullable=True)
-    # Peso en kg por empaque (Casos B, D)
-    kg_por_empaque = Column(Float, nullable=True)
-    # Nivel intermedio para multinivel (Caso D: maples por paquete)
-    nivel2_cantidad = Column(Float, nullable=True)   # maples / paquete
-    nivel2_nombre = Column(String(50), nullable=True)  # "Maple"
-    # Unidades dentro del nivel 2 (Caso D: huevos por maple)
-    unidades_por_nivel2 = Column(Float, nullable=True)
-
-    # ── Costos calculados (almacenados para auditoría) ──────────────────────
-    costo_empaque = Column(Float, default=0.0)      # = precio_empaque (o precio_total / cant)
-    costo_unitario = Column(Float, default=0.0)     # costo por unidad menor (unidad, kilo)
-    costo_nivel2 = Column(Float, nullable=True)      # costo por nivel intermedio (maple)
-
-    # ── Precios de venta sugeridos ──────────────────────────────────────────
+    # ── Costos y precios calculados (almacenados para auditoría) ────────────
+    costo_unitario = Column(Float, default=0.0)          # costo por unidad base
     porcentaje_ganancia = Column(Float, default=20.0)
-    precio_venta_empaque = Column(Float, default=0.0)   # PVP por empaque mayor
-    precio_venta_unitario = Column(Float, default=0.0)  # PVP por unidad/kg menor
-    precio_venta_nivel2 = Column(Float, nullable=True)  # PVP por nivel medio (maple)
+    precio_venta_presentacion = Column(Float, default=0.0)  # PVP sugerido por esa presentación
+    precio_venta_unitario = Column(Float, default=0.0)      # PVP sugerido por unidad base
 
-    # ── Stock ingresado ─────────────────────────────────────────────────────
-    # Unidades base que se agregan al inventario
+    # ── Stock ingresado (siempre en unidades base) ──────────────────────────
     stock_ingresado = Column(Float, default=0.0)
-    unidad_stock = Column(String(30), default="unidad")  # unidad | kilo
 
     lote = Column(String(100), nullable=True)
     fecha_vencimiento = Column(Date, nullable=True)
 
     compra = relationship("Compra", back_populates="detalles")
     producto = relationship("Producto")
+    lote_obj = relationship("Lote", back_populates="compra_detalle", uselist=False)
+
+    @property
+    def lote_id(self):
+        return self.lote_obj.id if self.lote_obj else None
+
+
+# ── Lotes (trazabilidad de stock por costo/vencimiento) ─────────────────────────
+
+class Lote(Base):
+    """Un lote es la unidad real de stock: cada compra crea uno nuevo con su
+    propio costo y fecha de vencimiento. Las ventas descuentan de los lotes
+    disponibles siguiendo FIFO por fecha de vencimiento (ver crud._asignar_fifo).
+    `compra_detalle_id` es NULL para lotes sintéticos creados por un ajuste
+    positivo de inventario (sin una compra detrás)."""
+    __tablename__ = "lotes"
+    __table_args__ = (
+        Index("ix_lotes_producto_codigo", "producto_id", "codigo_lote"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    producto_id = Column(Integer, ForeignKey("productos.id"), nullable=False)
+    compra_detalle_id = Column(Integer, ForeignKey("compras_detalles.id"), nullable=True)
+    codigo_lote = Column(String(100), nullable=True)
+    fecha_vencimiento = Column(Date, nullable=True)
+    costo_unitario = Column(Float, default=0.0)
+    precio_venta_unitario = Column(Float, default=0.0)
+    cantidad_inicial = Column(Float, default=0.0)
+    cantidad_disponible = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=now)
+    updated_at = Column(DateTime, default=now, onupdate=now)
+
+    producto = relationship("Producto", back_populates="lotes")
+    compra_detalle = relationship("CompraDetalle", back_populates="lote_obj")
+
+
+# ── Proveedores ─────────────────────────────────────────────────────────────────
+
+class Proveedor(Base):
+    __tablename__ = "proveedores"
+    __table_args__ = (
+        Index(
+            "ux_proveedores_ruc_activo",
+            "ruc",
+            unique=True,
+            postgresql_where=text("eliminado = false AND ruc IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200), nullable=False)
+    ruc = Column(String(20), nullable=True)
+    telefono = Column(String(30), nullable=True)
+    direccion = Column(String(250), nullable=True)
+    activo = Column(Boolean, default=True)
+    eliminado = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=now)
+    updated_at = Column(DateTime, default=now, onupdate=now)
+
+
+# ── Caja: apertura y cierre de turno ────────────────────────────────────────────
+
+class CajaApertura(Base):
+    __tablename__ = "caja_aperturas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(DateTime, default=now)
+    monto_inicial = Column(Float, default=0.0)
+    estado = Column(String(20), default="ABIERTA")  # ABIERTA | CERRADA
+    fecha_cierre = Column(DateTime, nullable=True)
+    monto_contado = Column(Float, nullable=True)
+    total_ventas = Column(Float, nullable=True)
+    total_efectivo = Column(Float, nullable=True)
+    total_tarjeta = Column(Float, nullable=True)
+    total_yape_plin = Column(Float, nullable=True)
+    total_gastos = Column(Float, nullable=True)
+    diferencia = Column(Float, nullable=True)
+    saldo_final = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=now)
+    updated_at = Column(DateTime, default=now, onupdate=now)

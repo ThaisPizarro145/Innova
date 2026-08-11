@@ -1,79 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
-import { getProductos, registrarCompra, getCompras, anularCompra, previewCalculoCompra } from "../services/api";
+import { getProductos, registrarCompra, getCompras, anularCompra, previewCalculoCompra, getProveedores } from "../services/api";
 import { normalizarFechaUTC } from "../components/NotaVenta";
 import "../styles/Compras.css";
 
-// ─── Constantes ────────────────────────────────────────────────────────────────
-
-const TIPOS = [
-  {
-    value: "caja_unidad",
-    label: "Caja / Unidad",
-    icono: "📦",
-    descripcion: "Aceite, conservas, bebidas",
-    empaque: "Caja",
-    camposExtra: ["unidades_por_empaque"],
-    sugerencias: ["empaque", "unitario"],
-  },
-  {
-    value: "saco_kilo",
-    label: "Saco / Kilo",
-    icono: "⚖️",
-    descripcion: "Menestras, arroz, azúcar",
-    empaque: "Saco",
-    camposExtra: ["kg_por_empaque"],
-    sugerencias: ["empaque", "kilo"],
-  },
-  {
-    value: "saco_unidad",
-    label: "Saco / Unidad",
-    icono: "🧂",
-    descripcion: "Sal, detergente en bolsas",
-    empaque: "Saco",
-    camposExtra: ["unidades_por_empaque"],
-    sugerencias: ["empaque", "unitario"],
-  },
-  {
-    value: "multinivel",
-    label: "Multinivel",
-    icono: "🥚",
-    descripcion: "Huevos (Paquete → Maple → Kg)",
-    empaque: "Paquete",
-    camposExtra: ["nivel2_cantidad", "unidades_por_nivel2", "kg_por_empaque"],
-    sugerencias: ["empaque", "nivel2", "kilo"],
-  },
-];
-
-const ETIQUETAS = {
-  caja_unidad: {
-    empaque: (n) => n || "Caja",
-    unitario: "Unidad",
-    campoUnidades: "Unidades por caja",
-  },
-  saco_kilo: {
-    empaque: (n) => n || "Saco",
-    kilo: "Kilo",
-    campoKg: "Peso del saco (kg)",
-  },
-  saco_unidad: {
-    empaque: (n) => n || "Saco",
-    unitario: "Bolsa / Unidad",
-    campoUnidades: "Bolsas por saco",
-  },
-  multinivel: {
-    empaque: (n) => n || "Paquete",
-    nivel2: "Maple",
-    kilo: "Kilo",
-    campoNivel2: "Maples por paquete",
-    campoHuevos: "Huevos por maple",
-    campoKg: "Kg totales por paquete",
-  },
-};
-
 const GANANCIA_DEFAULT = 20;
+const TIPOS_COMPROBANTE_COMPRA = ["Factura", "Boleta", "Guía"];
 
 function formatSol(v) {
   return `S/ ${Number(v ?? 0).toFixed(2)}`;
+}
+
+/** Presentaciones que un producto tiene habilitadas: Unidad siempre, Caja/Blíster según su ficha. */
+function presentacionesDisponibles(producto) {
+  if (!producto) return ["Unidad"];
+  const lista = ["Unidad"];
+  if (producto.unidades_por_caja > 0) lista.push("Caja");
+  if (producto.unidades_por_blister > 0) lista.push("Blíster");
+  return lista;
 }
 
 // ─── Estado inicial de un ítem del formulario ──────────────────────────────────
@@ -81,15 +24,9 @@ function formatSol(v) {
 function itemVacio() {
   return {
     producto_id: "",
-    tipo_presentacion: "caja_unidad",
-    nombre_empaque: "Caja",
-    cantidad_empaque: 1,
-    precio_empaque: "",
-    unidades_por_empaque: "",
-    kg_por_empaque: "",
-    nivel2_cantidad: "",
-    nivel2_nombre: "Maple",
-    unidades_por_nivel2: "",
+    presentacion: "Unidad",
+    cantidad_presentacion: 1,
+    precio_presentacion: "",
     porcentaje_ganancia: GANANCIA_DEFAULT,
     lote: "",
     fecha_vencimiento: "",
@@ -101,46 +38,24 @@ function itemVacio() {
 // ─── Componente FilaDetalle ────────────────────────────────────────────────────
 
 function FilaDetalle({ item, index, productos, onChange, onRemove }) {
-  // Al cambiar el producto seleccionado, autocargar su configuración de empaque
   const productoSeleccionado = productos.find((p) => String(p.id) === String(item.producto_id));
+  const presentaciones = presentacionesDisponibles(productoSeleccionado);
 
+  // Al cambiar el producto seleccionado, precargar presentación válida
   useEffect(() => {
-    if (!productoSeleccionado || !productoSeleccionado.tipo_flujo) return;
-    const p = productoSeleccionado;
-    const eq = p.equivalencias || {};
-
-    // Solo autocargar si el tipo no fue ya elegido manualmente para este producto
-    onChange(index, "tipo_presentacion", p.tipo_flujo);
-    onChange(index, "nombre_empaque", p.nombre_empaque_mayor || "");
-    onChange(index, "nivel2_nombre", p.nombre_nivel2 || "Maple");
-    // Precargar factores desde las equivalencias del catálogo
-    if (eq.unidades_por_empaque) onChange(index, "unidades_por_empaque", eq.unidades_por_empaque);
-    if (eq.kg_por_empaque) onChange(index, "kg_por_empaque", eq.kg_por_empaque);
-    if (eq.nivel2_por_empaque) onChange(index, "nivel2_cantidad", eq.nivel2_por_empaque);
-    if (eq.unidades_por_nivel2) onChange(index, "unidades_por_nivel2", eq.unidades_por_nivel2);
-    // Margen de ganancia del catálogo
-    if (p.margen_ganancia_default) onChange(index, "porcentaje_ganancia", p.margen_ganancia_default);
-  // Solo se dispara cuando cambia el producto seleccionado
+    if (!productoSeleccionado) return;
+    const disponibles = presentacionesDisponibles(productoSeleccionado);
+    if (!disponibles.includes(item.presentacion)) {
+      onChange(index, "presentacion", disponibles[0]);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.producto_id]);
 
-  const tipo = TIPOS.find((t) => t.value === item.tipo_presentacion) || TIPOS[0];
-  const etiq = ETIQUETAS[item.tipo_presentacion] || {};
   const preview = item._preview;
-  // Saber si el producto ya tiene flujo configurado (para mostrar badge informativo)
-  const tieneConfigCatalogo = productoSeleccionado?.tipo_flujo;
 
   // Recalcular preview cuando cambian los campos relevantes
   useEffect(() => {
-    const precioValido = Number(item.precio_empaque) > 0;
-    let camposCompletos = false;
-    if (item.tipo_presentacion === "caja_unidad" || item.tipo_presentacion === "saco_unidad") {
-      camposCompletos = precioValido && Number(item.unidades_por_empaque) > 0;
-    } else if (item.tipo_presentacion === "saco_kilo") {
-      camposCompletos = precioValido && Number(item.kg_por_empaque) > 0;
-    } else if (item.tipo_presentacion === "multinivel") {
-      camposCompletos = precioValido && Number(item.nivel2_cantidad) > 0;
-    }
+    const camposCompletos = Number(item.precio_presentacion) > 0 && item.producto_id;
 
     if (!camposCompletos) {
       onChange(index, "_preview", null);
@@ -150,16 +65,10 @@ function FilaDetalle({ item, index, productos, onChange, onRemove }) {
     let cancelled = false;
     onChange(index, "_loading", true);
     const payload = {
-      producto_id: Number(item.producto_id) || 1,
-      tipo_presentacion: item.tipo_presentacion,
-      nombre_empaque: item.nombre_empaque,
-      cantidad_empaque: Number(item.cantidad_empaque) || 1,
-      precio_empaque: Number(item.precio_empaque),
-      unidades_por_empaque: Number(item.unidades_por_empaque) || null,
-      kg_por_empaque: Number(item.kg_por_empaque) || null,
-      nivel2_cantidad: Number(item.nivel2_cantidad) || null,
-      nivel2_nombre: item.nivel2_nombre || null,
-      unidades_por_nivel2: Number(item.unidades_por_nivel2) || null,
+      producto_id: Number(item.producto_id),
+      presentacion: item.presentacion,
+      cantidad_presentacion: Number(item.cantidad_presentacion) || 1,
+      precio_presentacion: Number(item.precio_presentacion),
       porcentaje_ganancia: Number(item.porcentaje_ganancia) || GANANCIA_DEFAULT,
     };
     previewCalculoCompra(payload).then((res) => {
@@ -173,17 +82,11 @@ function FilaDetalle({ item, index, productos, onChange, onRemove }) {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    item.tipo_presentacion, item.precio_empaque, item.unidades_por_empaque,
-    item.kg_por_empaque, item.nivel2_cantidad, item.unidades_por_nivel2,
-    item.porcentaje_ganancia, item.cantidad_empaque,
+    item.producto_id, item.presentacion, item.precio_presentacion,
+    item.porcentaje_ganancia, item.cantidad_presentacion,
   ]);
 
   const set = (campo, valor) => onChange(index, campo, valor);
-
-  // Nombres dinámicos según el catálogo o el valor del item
-  const labelEmpaque = productoSeleccionado?.nombre_empaque_mayor || item.nombre_empaque || tipo.empaque;
-  const labelUnidadMenor = productoSeleccionado?.nombre_unidad_menor || "Unidad";
-  const labelNivel2 = productoSeleccionado?.nombre_nivel2 || item.nivel2_nombre || "Maple";
 
   return (
     <div className="compra-fila-detalle">
@@ -202,140 +105,29 @@ function FilaDetalle({ item, index, productos, onChange, onRemove }) {
         }}>
           <option value="">— Seleccionar —</option>
           {productos.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre} ({p.codigo})
-              {p.tipo_flujo ? ` · ${TIPOS.find(t => t.value === p.tipo_flujo)?.icono || ""}` : ""}
-            </option>
+            <option key={p.id} value={p.id}>{p.nombre}{p.marca ? ` (${p.marca})` : ""}</option>
           ))}
         </select>
-        {/* Badge: indica si el producto trae configuración de catálogo */}
-        {tieneConfigCatalogo && (
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "5px",
-            marginTop: "5px", background: "#eff6ff", border: "1px solid #bfdbfe",
-            borderRadius: "6px", padding: "3px 10px", fontSize: "0.76rem", color: "#1e40af"
-          }}>
-            ✅ Configuración cargada desde el catálogo
-            {" · "}{TIPOS.find(t => t.value === tieneConfigCatalogo)?.icono}{" "}
-            <strong>{TIPOS.find(t => t.value === tieneConfigCatalogo)?.label}</strong>
-            {" · "}{productoSeleccionado.margen_ganancia_default}% ganancia
-          </div>
-        )}
       </div>
 
-      {/* Tipo de presentación — siempre visible para permitir override manual */}
-      <div className="compra-campo-grupo">
-        <label>
-          Tipo de compra
-          {tieneConfigCatalogo && <span style={{ fontSize: "0.72rem", color: "#6b7280", marginLeft: "6px" }}>(precargado del catálogo · editable)</span>}
-        </label>
-        <div className="compra-tipo-grid">
-          {TIPOS.map((t) => (
-            <button
-              key={t.value}
-              className={`compra-tipo-btn${item.tipo_presentacion === t.value ? " activo" : ""}`}
-              onClick={() => {
-                set("tipo_presentacion", t.value);
-                set("nombre_empaque", t.empaque);
-                set("_preview", null);
-              }}
-              title={t.descripcion}
-              type="button"
-            >
-              <span className="tipo-icono">{t.icono}</span>
-              <span className="tipo-label">{t.label}</span>
-              <span className="tipo-desc">{t.descripcion}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Nombre del empaque + cantidad + precio */}
+      {/* Presentación + cantidad + precio */}
       <div className="compra-campos-row">
         <div className="compra-campo-grupo">
-          <label>Nombre empaque</label>
-          <input
-            type="text"
-            value={item.nombre_empaque}
-            onChange={(e) => set("nombre_empaque", e.target.value)}
-            placeholder={labelEmpaque}
-          />
+          <label>Presentación</label>
+          <select value={item.presentacion} onChange={(e) => { set("presentacion", e.target.value); set("_preview", null); }}>
+            {presentaciones.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
         </div>
         <div className="compra-campo-grupo">
           <label>Cantidad comprada</label>
-          <input type="number" min="0.01" step="0.01" value={item.cantidad_empaque}
-            onChange={(e) => set("cantidad_empaque", e.target.value)} />
+          <input type="number" min="1" step="1" value={item.cantidad_presentacion}
+            onChange={(e) => set("cantidad_presentacion", e.target.value)} />
         </div>
         <div className="compra-campo-grupo">
-          <label>Precio por {item.nombre_empaque || labelEmpaque} (S/)</label>
-          <input type="number" min="0" step="0.01" value={item.precio_empaque}
-            onChange={(e) => set("precio_empaque", e.target.value)} placeholder="0.00" />
+          <label>Precio por {item.presentacion} (S/)</label>
+          <input type="number" min="0" step="0.01" value={item.precio_presentacion}
+            onChange={(e) => set("precio_presentacion", e.target.value)} placeholder="0.00" />
         </div>
-      </div>
-
-      {/* ── Campos de factores de conversión: Smart UI según tipo ── */}
-      <div className="compra-campos-row">
-        {(item.tipo_presentacion === "caja_unidad" || item.tipo_presentacion === "saco_unidad") && (
-          <div className="compra-campo-grupo">
-            <label>
-              {item.tipo_presentacion === "caja_unidad"
-                ? `${labelUnidadMenor}s por ${labelEmpaque}`
-                : `Bolsas por ${labelEmpaque}`}
-            </label>
-            <input type="number" min="1" step="1"
-              value={item.unidades_por_empaque}
-              onChange={(e) => set("unidades_por_empaque", e.target.value)}
-              placeholder="Ej: 12"
-            />
-            {item.unidades_por_empaque > 0 && (
-              <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
-                1 {labelEmpaque} = {item.unidades_por_empaque} {labelUnidadMenor}s
-              </span>
-            )}
-          </div>
-        )}
-
-        {item.tipo_presentacion === "saco_kilo" && (
-          <div className="compra-campo-grupo">
-            <label>Kg por {labelEmpaque}</label>
-            <input type="number" min="0.01" step="0.01"
-              value={item.kg_por_empaque}
-              onChange={(e) => set("kg_por_empaque", e.target.value)}
-              placeholder="Ej: 50"
-            />
-            {item.kg_por_empaque > 0 && (
-              <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
-                1 {labelEmpaque} = {item.kg_por_empaque} kg
-              </span>
-            )}
-          </div>
-        )}
-
-        {item.tipo_presentacion === "multinivel" && (
-          <>
-            <div className="compra-campo-grupo">
-              <label>{labelNivel2}s por {labelEmpaque}</label>
-              <input type="number" min="1" value={item.nivel2_cantidad}
-                onChange={(e) => set("nivel2_cantidad", e.target.value)} placeholder="Ej: 8" />
-            </div>
-            <div className="compra-campo-grupo">
-              <label>Nombre nivel 2</label>
-              <input type="text" value={item.nivel2_nombre}
-                onChange={(e) => set("nivel2_nombre", e.target.value)} placeholder="Maple" />
-            </div>
-            <div className="compra-campo-grupo">
-              <label>{labelUnidadMenor}s por {labelNivel2}</label>
-              <input type="number" min="1" value={item.unidades_por_nivel2}
-                onChange={(e) => set("unidades_por_nivel2", e.target.value)} placeholder="Ej: 30" />
-            </div>
-            <div className="compra-campo-grupo">
-              <label>Kg por {labelEmpaque} (opcional)</label>
-              <input type="number" min="0" step="0.01" value={item.kg_por_empaque}
-                onChange={(e) => set("kg_por_empaque", e.target.value)} placeholder="Ej: 16" />
-            </div>
-          </>
-        )}
-
         <div className="compra-campo-grupo">
           <label>% Ganancia</label>
           <input type="number" min="0" max="999" step="0.5"
@@ -359,14 +151,7 @@ function FilaDetalle({ item, index, productos, onChange, onRemove }) {
       {/* Panel de sugerencias */}
       {item._loading && <div className="compra-preview-loading">⏳ Calculando...</div>}
       {preview && !item._loading && (
-        <PanelSugerencias
-          preview={preview}
-          item={item}
-          tipo={item.tipo_presentacion}
-          labelEmpaque={labelEmpaque}
-          labelUnidadMenor={labelUnidadMenor}
-          labelNivel2={labelNivel2}
-        />
+        <PanelSugerencias preview={preview} item={item} />
       )}
     </div>
   );
@@ -374,65 +159,10 @@ function FilaDetalle({ item, index, productos, onChange, onRemove }) {
 
 // ─── Panel de Sugerencias de Precios ─────────────────────────────────────────
 
-const ICONOS_PRESENTACION = {
-  kilo: "⚖️", saco: "🌾", "medio saco": "🌾", caja: "📦", unidad: "🏷️",
-  maple: "🗂️", paquete: "📦", bolsa: "🧂", litro: "🧴", botella: "🧴",
-  docena: "🏷️", balde: "🪣", jaba: "🗂️",
-};
+const ICONOS_PRESENTACION = { Caja: "📦", Unidad: "🏷️", "Blíster": "💊" };
 
-function iconoPresentacion(nombre) {
-  const key = (nombre || "").toLowerCase();
-  for (const [k, v] of Object.entries(ICONOS_PRESENTACION)) {
-    if (key.includes(k)) return v;
-  }
-  return "📦";
-}
-
-function PanelSugerencias({ preview, item, tipo, labelEmpaque, labelUnidadMenor, labelNivel2 }) {
-  // Usar presentaciones dinámicas si el backend las devuelve
-  const presentaciones = preview.presentaciones;
-
-  if (presentaciones && presentaciones.length > 0) {
-    return (
-      <div className="compra-preview">
-        <div className="compra-preview-titulo">
-          <span>💡 Costos y precios sugeridos (+{item.porcentaje_ganancia}% ganancia)</span>
-        </div>
-        <div className="compra-preview-grid">
-          {presentaciones.map((p, i) => (
-            <div key={i} className="preview-card">
-              <span className="preview-card-icon">{iconoPresentacion(p.unidad)}</span>
-              <span className="preview-card-label">{p.unidad}</span>
-              {p.descripcion && (
-                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{p.descripcion}</span>
-              )}
-              <span className="preview-card-costo">Costo: {formatSol(p.costo)}</span>
-              <span className="preview-card-precio">Venta: {formatSol(p.precio_venta)}</span>
-            </div>
-          ))}
-          {/* Stock a ingresar */}
-          <div className="preview-card preview-card-stock">
-            <span className="preview-card-icon">📊</span>
-            <span className="preview-card-label">Stock a ingresar</span>
-            <span className="preview-card-precio">
-              {Number(preview.stock_ingresado).toFixed(2)} {preview.unidad_stock}
-            </span>
-            <span className="preview-card-costo">
-              Total compra: {formatSol(Number(item.precio_empaque) * Number(item.cantidad_empaque))}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Fallback: layout fijo (cuando no hay presentaciones)
-  const nomEmpaque = labelEmpaque || item.nombre_empaque || "Empaque";
-  const nomNivel2 = labelNivel2 || item.nivel2_nombre || "Nivel 2";
-  const nomUnitario =
-    tipo === "saco_kilo" ? "Kilo" :
-    tipo === "multinivel" ? "Kilo" :
-    (labelUnidadMenor || "Unidad");
+function PanelSugerencias({ preview, item }) {
+  const presentaciones = preview.presentaciones || [];
 
   return (
     <div className="compra-preview">
@@ -440,37 +170,23 @@ function PanelSugerencias({ preview, item, tipo, labelEmpaque, labelUnidadMenor,
         <span>💡 Costos y precios sugeridos (+{item.porcentaje_ganancia}% ganancia)</span>
       </div>
       <div className="compra-preview-grid">
-        <div className="preview-card">
-          <span className="preview-card-icon">📦</span>
-          <span className="preview-card-label">Por {nomEmpaque}</span>
-          <span className="preview-card-costo">Costo: {formatSol(preview.costo_empaque)}</span>
-          <span className="preview-card-precio">Venta: {formatSol(preview.precio_venta_empaque)}</span>
-        </div>
-
-        {tipo === "multinivel" && preview.precio_venta_nivel2 != null && (
-          <div className="preview-card preview-card-nivel2">
-            <span className="preview-card-icon">🗂️</span>
-            <span className="preview-card-label">Por {nomNivel2}</span>
-            <span className="preview-card-costo">Costo: {formatSol(preview.costo_nivel2)}</span>
-            <span className="preview-card-precio">Venta: {formatSol(preview.precio_venta_nivel2)}</span>
+        {presentaciones.map((p, i) => (
+          <div key={i} className="preview-card">
+            <span className="preview-card-icon">{ICONOS_PRESENTACION[p.unidad] || "📦"}</span>
+            <span className="preview-card-label">{p.unidad}</span>
+            <span className="preview-card-costo">Costo: {formatSol(p.costo)}</span>
+            <span className="preview-card-precio">Venta: {formatSol(p.precio_venta)}</span>
           </div>
-        )}
-
-        <div className="preview-card preview-card-unitario">
-          <span className="preview-card-icon">{tipo === "saco_kilo" || tipo === "multinivel" ? "⚖️" : "🏷️"}</span>
-          <span className="preview-card-label">Por {nomUnitario}</span>
-          <span className="preview-card-costo">Costo: {formatSol(preview.costo_unitario)}</span>
-          <span className="preview-card-precio">Venta: {formatSol(preview.precio_venta_unitario)}</span>
-        </div>
-
+        ))}
+        {/* Stock a ingresar */}
         <div className="preview-card preview-card-stock">
           <span className="preview-card-icon">📊</span>
           <span className="preview-card-label">Stock a ingresar</span>
           <span className="preview-card-precio">
-            {Number(preview.stock_ingresado).toFixed(2)} {preview.unidad_stock}
+            {Number(preview.stock_ingresado).toFixed(2)} unidad(es)
           </span>
           <span className="preview-card-costo">
-            Total compra: {formatSol(Number(item.precio_empaque) * Number(item.cantidad_empaque))}
+            Total compra: {formatSol(Number(item.precio_presentacion) * Number(item.cantidad_presentacion))}
           </span>
         </div>
       </div>
@@ -483,6 +199,7 @@ function PanelSugerencias({ preview, item, tipo, labelEmpaque, labelUnidadMenor,
 export default function Compras() {
   const [tab, setTab] = useState("nueva"); // "nueva" | "historial"
   const [productos, setProductos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [compras, setCompras] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -492,7 +209,10 @@ export default function Compras() {
   // Cabecera de la compra
   const [cabecera, setCabecera] = useState({
     numero: "",
-    proveedor: "",
+    tipo_comprobante: "Factura",
+    serie: "",
+    moneda: "PEN",
+    proveedor_nombre: "",
     observaciones: "",
   });
 
@@ -502,6 +222,7 @@ export default function Compras() {
   // Cargar productos y compras al montar
   useEffect(() => {
     getProductos().then(setProductos).catch(() => {});
+    getProveedores().then(setProveedores).catch(() => {});
     if (tab === "historial") {
       setCargando(true);
       getCompras().then(setCompras).catch(() => {}).finally(() => setCargando(false));
@@ -524,11 +245,11 @@ export default function Compras() {
   const agregarLinea = () => setDetalles((prev) => [...prev, itemVacio()]);
   const eliminarLinea = (i) => setDetalles((prev) => prev.filter((_, idx) => idx !== i));
 
-  // Calcular totales de vista. El precio por empaque ya es lo que se paga
+  // Calcular totales de vista. El precio por presentación ya es lo que se paga
   // al proveedor (con IGV incluido): nunca se le suma IGV encima, se
   // desglosa hacia atrás solo para el registro contable.
   const totalCompra = detalles.reduce(
-    (acc, d) => acc + (Number(d.precio_empaque) || 0) * (Number(d.cantidad_empaque) || 0),
+    (acc, d) => acc + (Number(d.precio_presentacion) || 0) * (Number(d.cantidad_presentacion) || 0),
     0
   );
   const subtotalCompra = totalCompra / 1.18;
@@ -540,7 +261,7 @@ export default function Compras() {
 
     // Validaciones básicas
     const invalidas = detalles.filter(
-      (d) => !d.producto_id || !d.precio_empaque || Number(d.precio_empaque) <= 0
+      (d) => !d.producto_id || !d.precio_presentacion || Number(d.precio_presentacion) <= 0
     );
     if (invalidas.length > 0) {
       setError("Completa todos los campos requeridos (producto y precio) en cada línea.");
@@ -551,19 +272,16 @@ export default function Compras() {
     try {
       const payload = {
         numero: cabecera.numero || null,
-        proveedor: cabecera.proveedor || null,
+        tipo_comprobante: cabecera.tipo_comprobante || null,
+        serie: cabecera.serie || null,
+        moneda: cabecera.moneda || "PEN",
+        proveedor_nombre: cabecera.proveedor_nombre || null,
         observaciones: cabecera.observaciones || null,
         detalles: detalles.map((d) => ({
           producto_id: Number(d.producto_id),
-          tipo_presentacion: d.tipo_presentacion,
-          nombre_empaque: d.nombre_empaque,
-          cantidad_empaque: Number(d.cantidad_empaque) || 1,
-          precio_empaque: Number(d.precio_empaque),
-          unidades_por_empaque: Number(d.unidades_por_empaque) || null,
-          kg_por_empaque: Number(d.kg_por_empaque) || null,
-          nivel2_cantidad: Number(d.nivel2_cantidad) || null,
-          nivel2_nombre: d.nivel2_nombre || null,
-          unidades_por_nivel2: Number(d.unidades_por_nivel2) || null,
+          presentacion: d.presentacion,
+          cantidad_presentacion: Number(d.cantidad_presentacion) || 1,
+          precio_presentacion: Number(d.precio_presentacion),
           porcentaje_ganancia: Number(d.porcentaje_ganancia) || GANANCIA_DEFAULT,
           lote: d.lote || null,
           fecha_vencimiento: d.fecha_vencimiento || null,
@@ -572,9 +290,10 @@ export default function Compras() {
       await registrarCompra(payload);
       setExito("✅ Compra registrada. Stock e inventario actualizados.");
       setDetalles([itemVacio()]);
-      setCabecera({ numero: "", proveedor: "", observaciones: "" });
-      // Refrescar productos
+      setCabecera({ numero: "", tipo_comprobante: "Factura", serie: "", moneda: "PEN", proveedor_nombre: "", observaciones: "" });
+      // Refrescar productos y proveedores (puede haberse creado uno nuevo)
       getProductos().then(setProductos).catch(() => {});
+      getProveedores().then(setProveedores).catch(() => {});
     } catch (err) {
       setError(err.message || "Error al registrar la compra.");
     } finally {
@@ -598,7 +317,7 @@ export default function Compras() {
       <div className="compras-header">
         <h2>🛒 Entrada de Compras</h2>
         <p className="compras-subtitulo">
-          Registra compras mayoristas y minoristas con cálculo automático de costos y precios sugeridos.
+          Registra compras a proveedor con cálculo automático de costos y precios sugeridos.
         </p>
       </div>
 
@@ -623,28 +342,54 @@ export default function Compras() {
         <div className="compras-form">
           {/* Cabecera de la orden */}
           <div className="compras-seccion">
-            <h3>Datos del proveedor</h3>
+            <h3>Datos de la compra</h3>
             <div className="compra-campos-row">
-              <div className="compra-campo-grupo">
-                <label>Nro. Factura / Guía</label>
-                <input
-                  type="text"
-                  value={cabecera.numero}
-                  onChange={(e) => setCabField("numero", e.target.value)}
-                  placeholder="F001-000123"
-                />
-              </div>
               <div className="compra-campo-grupo">
                 <label>Proveedor</label>
                 <input
                   type="text"
-                  value={cabecera.proveedor}
-                  onChange={(e) => setCabField("proveedor", e.target.value)}
+                  list="lista-proveedores"
+                  value={cabecera.proveedor_nombre}
+                  onChange={(e) => setCabField("proveedor_nombre", e.target.value)}
                   placeholder="Nombre del proveedor"
                 />
+                <datalist id="lista-proveedores">
+                  {proveedores.map((p) => <option key={p.id} value={p.nombre} />)}
+                </datalist>
+              </div>
+              <div className="compra-campo-grupo">
+                <label>Tipo de comprobante</label>
+                <select value={cabecera.tipo_comprobante} onChange={(e) => setCabField("tipo_comprobante", e.target.value)}>
+                  {TIPOS_COMPROBANTE_COMPRA.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="compra-campo-grupo">
+                <label>Serie</label>
+                <input
+                  type="text"
+                  value={cabecera.serie}
+                  onChange={(e) => setCabField("serie", e.target.value)}
+                  placeholder="F001"
+                />
+              </div>
+              <div className="compra-campo-grupo">
+                <label>Número</label>
+                <input
+                  type="text"
+                  value={cabecera.numero}
+                  onChange={(e) => setCabField("numero", e.target.value)}
+                  placeholder="000123"
+                />
+              </div>
+              <div className="compra-campo-grupo">
+                <label>Moneda</label>
+                <select value={cabecera.moneda} onChange={(e) => setCabField("moneda", e.target.value)}>
+                  <option value="PEN">Soles (PEN)</option>
+                  <option value="USD">Dólares (USD)</option>
+                </select>
               </div>
               <div className="compra-campo-grupo compra-campo-wide">
-                <label>Observaciones</label>
+                <label>Observación</label>
                 <input
                   type="text"
                   value={cabecera.observaciones}
@@ -732,8 +477,8 @@ export default function Compras() {
                   <tr key={c.id} className={c.estado === "ANULADA" ? "fila-anulada" : ""}>
                     <td>{c.id}</td>
                     <td>{normalizarFechaUTC(c.fecha).toLocaleDateString("es-PE")}</td>
-                    <td>{c.numero || "—"}</td>
-                    <td>{c.proveedor || "—"}</td>
+                    <td>{c.serie ? `${c.serie}-${c.numero || ""}` : (c.numero || "—")}</td>
+                    <td>{c.proveedor_nombre || "—"}</td>
                     <td>{formatSol(c.total)}</td>
                     <td>
                       <span className={`badge-estado badge-${c.estado?.toLowerCase()}`}>

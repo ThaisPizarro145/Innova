@@ -10,7 +10,7 @@ router = APIRouter()
 def listar_productos(
     skip: int = 0,
     limit: int = 100,
-    query: Optional[str] = Query(None, description="Buscar por nombre, código, laboratorio o categoría"),
+    query: Optional[str] = Query(None, description="Buscar por nombre, laboratorio, marca o categoría"),
     db: Session = Depends(get_db),
 ):
     return crud.listar_productos(db, skip=skip, limit=limit, query=query)
@@ -50,6 +50,7 @@ def actualizar_precios_presentacion(
     producto.updated_at = datetime.datetime.utcnow()
     db.commit()
     db.refresh(producto)
+    crud.enriquecer_producto(db, producto)
     return producto
 
 @router.delete("/productos/{producto_id}", response_model=schemas.ProductoResponse)
@@ -59,8 +60,18 @@ def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Producto no encontrado")
     return db_producto
 
+@router.get("/lotes", response_model=List[schemas.LoteResponse])
+def listar_lotes(
+    producto_id: Optional[int] = Query(None),
+    solo_disponibles: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    return crud.listar_lotes(db, producto_id=producto_id, solo_disponibles=solo_disponibles)
+
 @router.post("/movimientos", response_model=schemas.MovimientoInventarioResponse)
 def crear_movimiento(movimiento: schemas.MovimientoInventarioCreate, db: Session = Depends(get_db)):
+    """Solo ajustes manuales (AJUSTE_POSITIVO / AJUSTE_NEGATIVO) — ENTRADA/SALIDA
+    los genera el sistema desde Compras/Ventas."""
     try:
         return crud.crear_movimiento_inventario(db, movimiento)
     except ValueError as error:
@@ -87,22 +98,26 @@ def actualizar_movimiento(movimiento_id: int, datos: schemas.MovimientoInventari
 
 @router.delete("/movimientos/{movimiento_id}")
 def eliminar_movimiento(movimiento_id: int, db: Session = Depends(get_db)):
-    mov = crud.eliminar_movimiento(db, movimiento_id)
+    try:
+        mov = crud.eliminar_movimiento(db, movimiento_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
     if not mov:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     return {"ok": True, "id": movimiento_id}
 
-@router.get("/reportes/vencidos", response_model=List[schemas.ProductoResponse])
+@router.get("/reportes/vencidos", response_model=List[schemas.LoteResponse])
 def productos_vencidos(db: Session = Depends(get_db)):
     return crud.reporte_productos_vencidos(db)
 
 @router.get("/reportes/stock-bajo", response_model=List[schemas.ProductoResponse])
 def stock_bajo(db: Session = Depends(get_db)):
-    productos = crud.reporte_stock_actual(db)
-    return [producto for producto in productos if producto.stock_actual <= producto.stock_minimo]
+    return crud.reporte_stock_bajo(db)
 
-@router.get("/reportes/proximos-vencer", response_model=List[schemas.ProductoResponse])
+@router.get("/reportes/sin-stock", response_model=List[schemas.ProductoResponse])
+def sin_stock(db: Session = Depends(get_db)):
+    return crud.reporte_sin_stock(db)
+
+@router.get("/reportes/proximos-vencer", response_model=List[schemas.LoteResponse])
 def proximos_vencer(dias: int = Query(30, ge=1), db: Session = Depends(get_db)):
-    productos = crud.reporte_stock_actual(db)
-    hoy = __import__("datetime").date.today()
-    return [producto for producto in productos if producto.fecha_vencimiento and 0 <= (producto.fecha_vencimiento - hoy).days <= dias]
+    return crud.reporte_proximos_vencer(db, dias=dias)

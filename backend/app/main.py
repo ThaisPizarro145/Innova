@@ -4,7 +4,7 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import test, inventario, clientes, ventas, compras, categorias_config, categorias, caja, reportes, consulta, empresa
+from app.routers import test, inventario, clientes, ventas, compras, categorias, caja, reportes, consulta, empresa, proveedores
 from app.database import engine
 from app import models, crud
 
@@ -60,10 +60,10 @@ async def manejar_excepcion_no_controlada(request: Request, exc: Exception):
 app.include_router(test.router)
 app.include_router(inventario.router, prefix="/inventario", tags=["Inventario"])
 app.include_router(clientes.router, prefix="/clientes", tags=["Clientes"])
+app.include_router(proveedores.router, prefix="/proveedores", tags=["Proveedores"])
 app.include_router(ventas.router, prefix="/ventas", tags=["Ventas"])
 app.include_router(compras.router, prefix="/compras", tags=["Compras"])
 app.include_router(categorias.router, prefix="/categorias", tags=["Categorías"])
-app.include_router(categorias_config.router, prefix="/categorias-config", tags=["Categorías Config"])
 app.include_router(caja.router, prefix="/caja", tags=["Caja"])
 app.include_router(reportes.router, prefix="/reportes", tags=["Reportes"])
 app.include_router(consulta.router, prefix="/consulta", tags=["Consulta RUC/DNI"])
@@ -71,24 +71,8 @@ app.include_router(empresa.router, prefix="/empresa", tags=["Empresa"])
 
 @app.on_event("startup")
 def on_startup():
-    """Sembrar categorías predeterminadas al arrancar si no existen."""
-    from sqlalchemy import text
     from app.database import SessionLocal
     db = SessionLocal()
-    # No usamos Alembic: create_all no altera columnas de tablas ya
-    # existentes. Si "categorias"/"categoria_config" quedaron creadas con
-    # icono VARCHAR(10) (versión anterior del modelo), ensancharla aquí evita
-    # que un ícono válido tumbe el POST con un DataError. ALTER COLUMN ...
-    # TYPE a un VARCHAR más ancho es una operación de metadata en Postgres,
-    # no reescribe la tabla. Cada tabla en su propio try/except: si una falla
-    # (p. ej. no existe todavía) no debe revertir el ajuste de la otra.
-    for tabla in ("categorias", "categoria_config"):
-        try:
-            db.execute(text(f"ALTER TABLE {tabla} ALTER COLUMN icono TYPE VARCHAR(20)"))
-            db.commit()
-        except Exception:
-            db.rollback()
-            logger.error("Error al ensanchar columna icono de %s:\n%s", tabla, traceback.format_exc())
     try:
         crud.sembrar_categorias_default(db)
     except Exception:

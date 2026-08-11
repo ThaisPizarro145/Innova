@@ -8,27 +8,25 @@ import Medicamentos from "./pages/Medicamentos";
 import Inventario from "./pages/Inventario";
 import Ventas from "./pages/Ventas";
 import Clientes from "./pages/Clientes";
+import Proveedores from "./pages/Proveedores";
 import Configuracion from "./pages/Configuracion";
 import Categorias from "./pages/Categorias";
-import ConfiguracionCategorias from "./pages/ConfiguracionCategorias";
 import Reportes from "./pages/Reportes";
 import Caja from "./pages/Caja";
 import Compras from "./pages/Compras";
-import Migracion from "./pages/Migracion";
 
 const ENLACES = [
   { to: "/dashboard", label: "🏠 Dashboard" },
-  { to: "/categorias", label: "🏷️ Categorías" },
-  { to: "/categorias-config", label: "⚙️ Config. Unidades" },
-  { to: "/medicamentos", label: "📦 Productos" },
-  { to: "/compras", label: "🛒 Compras" },
-  { to: "/inventario", label: "📋 Inventario" },
   { to: "/ventas", label: "💵 Ventas" },
+  { to: "/compras", label: "🛒 Compras" },
+  { to: "/medicamentos", label: "📦 Productos" },
+  { to: "/categorias", label: "🏷️ Categorías" },
+  { to: "/inventario", label: "📋 Inventario" },
   { to: "/clientes", label: "👥 Clientes" },
+  { to: "/proveedores", label: "🚚 Proveedores" },
   { to: "/caja", label: "💰 Caja" },
   { to: "/reportes", label: "📊 Reportes" },
   { to: "/configuracion", label: "⚙ Configuración" },
-  { to: "/migracion", label: "🔄 Migración BD" },
 ];
 
 function App() {
@@ -88,16 +86,15 @@ function App() {
           <Route path="/" element={<Ventas />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/categorias" element={<Categorias />} />
-          <Route path="/categorias-config" element={<ConfiguracionCategorias />} />
           <Route path="/medicamentos" element={<Medicamentos />} />
           <Route path="/compras" element={<Compras />} />
           <Route path="/inventario" element={<Inventario />} />
           <Route path="/ventas" element={<Ventas />} />
           <Route path="/clientes" element={<Clientes />} />
+          <Route path="/proveedores" element={<Proveedores />} />
           <Route path="/caja" element={<Caja />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="/configuracion" element={<Configuracion />} />
-          <Route path="/migracion" element={<Migracion />} />
         </Routes>
       </main>
     </div>

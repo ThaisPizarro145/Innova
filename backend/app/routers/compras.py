@@ -44,11 +44,22 @@ def anular_compra(compra_id: int, db: Session = Depends(get_db)):
     return compra
 
 
+@router.get("/reportes/por-proveedor")
+def compras_por_proveedor(db: Session = Depends(get_db)):
+    return crud.reporte_compras_por_proveedor(db)
+
+
+@router.get("/reportes/por-fecha")
+def compras_por_fecha(db: Session = Depends(get_db)):
+    return crud.reporte_compras_por_fecha(db)
+
+
 @router.post("/preview", response_model=dict)
 def preview_calculo(item: schemas.CompraDetalleCreate, db: Session = Depends(get_db)):
     """
     Calcula costos y precios sugeridos sin persistir.
-    Lee las equivalencias configuradas en la ficha del producto si no se pasan explícitamente.
+    Lee las unidades por Caja/Blíster configuradas en la ficha del producto
+    si no se pasan explícitamente en el ítem.
     """
     try:
         return crud.calcular_preview_compra(item, db)

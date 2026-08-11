@@ -24,32 +24,6 @@ def listar_ventas(
 ):
     return crud.listar_ventas(db, skip=skip, limit=limit, query=query, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta)
 
-# ── Reportes (deben ir ANTES de /{venta_id} para evitar conflicto de rutas) ──
-
-@router.get("/reportes/diarias")
-def ventas_diarias(db: Session = Depends(get_db)):
-    return crud.reporte_ventas_diarias(db)
-
-@router.get("/reportes/mensuales")
-def ventas_mensuales(db: Session = Depends(get_db)):
-    return crud.reporte_ventas_mensuales(db)
-
-@router.get("/reportes/mas-vendidos")
-def productos_mas_vendidos(limit: int = 10, db: Session = Depends(get_db)):
-    return crud.reporte_productos_mas_vendidos(db, limit=limit)
-
-@router.get("/reportes/menos-vendidos")
-def productos_menos_vendidos(limit: int = 10, db: Session = Depends(get_db)):
-    return crud.reporte_productos_menos_vendidos(db, limit=limit)
-
-@router.get("/reportes/stock")
-def reporte_stock(db: Session = Depends(get_db)):
-    return crud.reporte_stock_actual(db)
-
-@router.get("/reportes/vencidos")
-def reporte_vencidos(db: Session = Depends(get_db)):
-    return crud.reporte_productos_vencidos(db)
-
 # ── Operaciones por ID (deben ir DESPUÉS de las rutas literales) ──────────────
 
 @router.get("/{venta_id}", response_model=schemas.VentaResponse)
