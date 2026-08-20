@@ -40,8 +40,8 @@
 }
 
 .compras-tab.activo {
-  color: var(--color-primary, #2563eb);
-  border-bottom-color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #dc2626);
+  border-bottom-color: var(--color-primary, #dc2626);
   font-weight: 600;
 }
 
@@ -113,7 +113,7 @@
 .compra-campo-grupo input:focus,
 .compra-campo-grupo select:focus {
   outline: none;
-  border-color: var(--color-primary, #2563eb);
+  border-color: var(--color-primary, #dc2626);
   background: #fff;
 }
 
@@ -137,8 +137,8 @@
 .compra-fila-num {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--color-primary, #2563eb);
-  background: #eff6ff;
+  color: var(--color-primary, #dc2626);
+  background: #fef2f2;
   padding: 0.2rem 0.6rem;
   border-radius: 99px;
 }
@@ -165,13 +165,13 @@
 }
 
 .compra-tipo-btn:hover {
-  border-color: var(--color-primary, #2563eb);
-  background: #eff6ff;
+  border-color: var(--color-primary, #dc2626);
+  background: #fef2f2;
 }
 
 .compra-tipo-btn.activo {
-  border-color: var(--color-primary, #2563eb);
-  background: #eff6ff;
+  border-color: var(--color-primary, #dc2626);
+  background: #fef2f2;
 }
 
 .tipo-icono {
@@ -193,7 +193,7 @@
 /* Panel de sugerencias */
 .compra-preview {
   margin-top: 0.75rem;
-  background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+  background: linear-gradient(135deg, #f0fdf4 0%, #fef2f2 100%);
   border: 1px solid #bbf7d0;
   border-radius: 10px;
   padding: 0.875rem 1rem;
@@ -230,8 +230,8 @@
 }
 
 .preview-card-unitario {
-  border-color: #bfdbfe;
-  background: #eff6ff;
+  border-color: #fca5a5;
+  background: #fef2f2;
 }
 
 .preview-card-stock {
@@ -291,7 +291,7 @@
   border-top: 1px solid var(--color-border, #e5e7eb);
   margin-top: 0.25rem;
   padding-top: 0.5rem;
-  color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #dc2626);
 }
 
 /* Mensajes */
@@ -319,7 +319,7 @@
 .btn-guardar-compra {
   width: 100%;
   padding: 0.9rem;
-  background: var(--color-primary, #2563eb);
+  background: var(--color-primary, #dc2626);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -330,7 +330,7 @@
 }
 
 .btn-guardar-compra:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #b91c1c;
 }
 
 .btn-guardar-compra:disabled {
@@ -340,9 +340,9 @@
 
 .btn-agregar-linea {
   padding: 0.45rem 1rem;
-  background: #eff6ff;
-  color: var(--color-primary, #2563eb);
-  border: 1px solid #bfdbfe;
+  background: #fef2f2;
+  color: var(--color-primary, #dc2626);
+  border: 1px solid #fca5a5;
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -351,7 +351,7 @@
 }
 
 .btn-agregar-linea:hover {
-  background: #dbeafe;
+  background: #fecaca;
 }
 
 .btn-icon {

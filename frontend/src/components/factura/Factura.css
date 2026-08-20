@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Factura.css — Comprobante electrónico A4 (Boleta / Factura)
-   Paleta: negro, grises suaves, azul corporativo discreto. Sin frameworks.
+   Paleta: negro, grises suaves, rojo corporativo discreto. Sin frameworks.
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -12,8 +12,8 @@
   --f-gris-200:    #e7e9ed;
   --f-gris-100:    #f4f5f7;
   --f-blanco:      #ffffff;
-  --f-azul:        #2c4a75;   /* azul corporativo, muy discreto */
-  --f-azul-suave:  #f2f5f9;
+  --f-rojo:        #7a2c2c;   /* rojo corporativo, muy discreto */
+  --f-rojo-suave:  #f9f2f2;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────── */
@@ -74,18 +74,18 @@ body {
 .f-doc-box {
   flex: none;
   width: 205px;
-  border: 1.5px solid var(--f-azul);
+  border: 1.5px solid var(--f-rojo);
   border-radius: 10px;
   padding: 12px 14px;
   text-align: center;
-  background: var(--f-azul-suave);
+  background: var(--f-rojo-suave);
 }
 
 .f-doc-tipo {
   font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.4px;
-  color: var(--f-azul);
+  color: var(--f-rojo);
   text-transform: uppercase;
   margin-bottom: 6px;
 }
@@ -240,7 +240,7 @@ body {
   font-size: 9.7px;
   color: var(--f-negro);
   background: var(--f-gris-100);
-  border-left: 3px solid var(--f-azul);
+  border-left: 3px solid var(--f-rojo);
   border-radius: 0 6px 6px 0;
   page-break-inside: avoid;
 }

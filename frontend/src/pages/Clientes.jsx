@@ -179,7 +179,7 @@ function Clientes() {
                   <button type="button" title="Consultar RENIEC"
                     disabled={consultando}
                     onClick={() => consultarDoc(cliente.dni)}
-                    style={{ background: "#0f6df2", color: "white", border: "none", borderRadius: "8px", padding: "8px 10px", cursor: "pointer", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                    style={{ background: "#dc2626", color: "white", border: "none", borderRadius: "8px", padding: "8px 10px", cursor: "pointer", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                     {consultando ? "⏳" : "🔍 RENIEC"}
                   </button>
                 </div>

@@ -21,7 +21,7 @@ const TIPOS_EDITABLES = ["AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"];
 const TIPO_COLOR = {
   ENTRADA: { bg: "#dcfce7", color: "#16a34a" },
   SALIDA: { bg: "#fee2e2", color: "#dc2626" },
-  AJUSTE_POSITIVO: { bg: "#dbeafe", color: "#1d4ed8" },
+  AJUSTE_POSITIVO: { bg: "#fecaca", color: "#b91c1c" },
   AJUSTE_NEGATIVO: { bg: "#fef9c3", color: "#854d0e" },
   DEVOLUCION: { bg: "#f3e8ff", color: "#7e22ce" },
 };
@@ -452,7 +452,7 @@ function Inventario() {
                         {editable ? (
                           <div style={{ display: "flex", gap: "4px" }}>
                             <button type="button"
-                              style={{ background: "#0f6df2", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }}
+                              style={{ background: "#dc2626", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }}
                               onClick={() => setMovEdit({ ...m })}>✏️</button>
                             <button type="button"
                               style={{ background: "#ef4444", color: "white", border: "none", borderRadius: "6px", padding: "5px 9px", cursor: "pointer", fontSize: "0.8rem" }}

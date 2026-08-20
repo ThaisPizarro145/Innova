@@ -87,8 +87,8 @@ function ModalPrecios({ producto, onGuardar, onCerrar }) {
                   <input type="number" min="0" step="0.01"
                     value={precios[pres] || ""}
                     onChange={(e) => setPrecios((prev) => ({ ...prev, [pres]: Number(e.target.value) }))}
-                    style={{ padding: "6px 10px", borderRadius: "8px", border: "2px solid #bfdbfe",
-                      background: "#eff6ff", fontWeight: 700, color: "#1d4ed8", fontSize: "1.05rem", width: "100%" }}
+                    style={{ padding: "6px 10px", borderRadius: "8px", border: "2px solid #fca5a5",
+                      background: "#fef2f2", fontWeight: 700, color: "#b91c1c", fontSize: "1.05rem", width: "100%" }}
                   />
                 </div>
                 {g !== null && (
@@ -161,7 +161,7 @@ function TarjetaProducto({ producto, onEditar, onEliminar, onEditarPrecios }) {
       <div style={{ padding: "14px 16px" }}>
         {/* Equivalencia */}
         {equivLabel && (
-          <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "8px", padding: "6px 10px", fontSize: "0.75rem", color: "#0369a1", marginBottom: "10px", fontWeight: 600 }}>
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "6px 10px", fontSize: "0.75rem", color: "#991b1b", marginBottom: "10px", fontWeight: 600 }}>
             📐 {equivLabel}
           </div>
         )}
@@ -200,7 +200,7 @@ function TarjetaProducto({ producto, onEditar, onEliminar, onEditarPrecios }) {
                     border: "1px solid #e2e8f0", textAlign: "center",
                   }}>
                     <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: "2px" }}>{pres}</div>
-                    <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#0f6df2" }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#dc2626" }}>
                       {precio > 0 ? fmt(precio) : <span style={{ color: "#cbd5e1" }}>—</span>}
                     </div>
                     {g !== null && (
@@ -225,7 +225,7 @@ function TarjetaProducto({ producto, onEditar, onEliminar, onEditarPrecios }) {
           💰 Precios
         </button>
         <button type="button" onClick={() => onEditar(producto)}
-          style={{ flex: 1, background: "#eff6ff", color: "#0f6df2", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "6px 0", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
+          style={{ flex: 1, background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "8px", padding: "6px 0", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>
           ✏️ Editar
         </button>
         <button type="button" onClick={() => onEliminar(producto.id)}
@@ -453,7 +453,7 @@ function Medicamentos() {
                     <td>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                         {presentaciones.map((pres) => (
-                          <span key={pres} style={{ background: "#eff6ff", color: "#0f6df2", borderRadius: "6px", padding: "2px 6px", fontSize: "0.72rem", fontWeight: 600 }}>
+                          <span key={pres} style={{ background: "#fef2f2", color: "#dc2626", borderRadius: "6px", padding: "2px 6px", fontSize: "0.72rem", fontWeight: 600 }}>
                             {pres}: {fmt(p.precios_presentacion?.[pres] || 0)}
                           </span>
                         ))}
@@ -466,7 +466,7 @@ function Medicamentos() {
                           style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "5px 8px", cursor: "pointer", fontSize: "0.8rem" }}
                           onClick={() => setProductoPrecios(p)}>💰</button>
                         <button type="button" title="Editar producto"
-                          style={{ background: "#eff6ff", color: "#0f6df2", border: "1px solid #bfdbfe", borderRadius: "6px", padding: "5px 8px", cursor: "pointer", fontSize: "0.8rem" }}
+                          style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "6px", padding: "5px 8px", cursor: "pointer", fontSize: "0.8rem" }}
                           onClick={() => editarProducto(p)}>✏️</button>
                         <button type="button" title="Eliminar"
                           style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", padding: "5px 8px", cursor: "pointer", fontSize: "0.8rem" }}

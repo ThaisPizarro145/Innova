@@ -44,10 +44,10 @@ function exportarPDFCaja(movimientos, resumen) {
     </tr>`;
   }).join("");
   const html = `<html><head><title>Caja</title>
-  <style>body{font-family:sans-serif;padding:24px}h1{color:#0f6df2}
+  <style>body{font-family:sans-serif;padding:24px}h1{color:#dc2626}
   table{width:100%;border-collapse:collapse;margin-top:16px}
   th,td{border:1px solid #e2e8f0;padding:7px 10px;font-size:12px}
-  th{background:#0f6df2;color:white}
+  th{background:#dc2626;color:white}
   .resumen{display:flex;gap:16px;margin:16px 0}
   .res-box{border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;min-width:130px}
   .res-label{font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600}
@@ -214,8 +214,8 @@ export default function Caja() {
       </div>
 
       {ultimoCierre && (
-        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "14px 16px", marginBottom: "16px" }}>
-          <div style={{ fontWeight: 700, color: "#1d4ed8", marginBottom: "8px" }}>📄 Resumen del último cierre</div>
+        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "10px", padding: "14px 16px", marginBottom: "16px" }}>
+          <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: "8px" }}>📄 Resumen del último cierre</div>
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", fontSize: "0.85rem" }}>
             <span>Total ventas: <strong>{fmt(ultimoCierre.total_ventas)}</strong></span>
             <span>Efectivo: <strong>{fmt(ultimoCierre.total_efectivo)}</strong></span>

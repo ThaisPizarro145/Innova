@@ -5,7 +5,7 @@ import { getCategorias, crearCategoria, actualizarCategoria, eliminarCategoria, 
 // nombre) — se asignan automáticamente ciclando estas paletas para que las
 // insignias de categoría sigan viéndose distintas entre sí en Productos/Inventario.
 const ICONOS = ["💊","🩹","🧴","🌡️","💉","🧬","🦠","🩺","🧪","📦","🧊","🌿","🍬","🧫","🩸","🧉","🧻","🧼","🫙","🥤"];
-const COLORES_PRESET = ["#0f6df2","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#f97316","#84cc16","#6366f1"];
+const COLORES_PRESET = ["#dc2626","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#f97316","#84cc16","#6366f1"];
 const estadoInicial = { nombre: "" };
 const fmt = (v) => `S/ ${Number(v || 0).toFixed(2)}`;
 
@@ -141,10 +141,10 @@ export default function Categorias() {
             <div
               key={cat.id}
               className={`cat-lista-item ${categoriaActiva?.id === cat.id ? "cat-lista-activa" : ""}`}
-              style={{ borderLeft: `4px solid ${cat.color || "#0f6df2"}` }}
+              style={{ borderLeft: `4px solid ${cat.color || "#dc2626"}` }}
               onClick={() => { setCategoriaActiva(cat); setBusquedaProducto(""); }}
             >
-              <span className="cat-icono-sm" style={{ background: (cat.color || "#0f6df2") + "22", color: cat.color || "#0f6df2" }}>
+              <span className="cat-icono-sm" style={{ background: (cat.color || "#dc2626") + "22", color: cat.color || "#dc2626" }}>
                 {cat.icono || "📦"}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -176,7 +176,7 @@ export default function Categorias() {
                     {categoriaActiva.descripcion && <p style={{ margin: 0, color: "#64748b", fontSize: "0.82rem" }}>{categoriaActiva.descripcion}</p>}
                   </div>
                 </div>
-                <span className="cat-productos-badge" style={{ background: (categoriaActiva.color || "#0f6df2") + "22", color: categoriaActiva.color || "#0f6df2" }}>
+                <span className="cat-productos-badge" style={{ background: (categoriaActiva.color || "#dc2626") + "22", color: categoriaActiva.color || "#dc2626" }}>
                   {productosCat.length} producto{productosCat.length !== 1 ? "s" : ""}
                 </span>
               </div>
@@ -226,7 +226,7 @@ export default function Categorias() {
                             </span>
                           </td>
                           <td><span className="tag-presentacion">{p.unidad_base || "unidad"}</span></td>
-                          <td style={{ fontWeight: 700, color: "#0f6df2" }}>{fmt(p.precios_presentacion?.Unidad)}</td>
+                          <td style={{ fontWeight: 700, color: "#dc2626" }}>{fmt(p.precios_presentacion?.Unidad)}</td>
                           <td style={{ color: "#64748b" }}>{fmt(p.ultimo_costo)}</td>
                         </tr>
                       ))}

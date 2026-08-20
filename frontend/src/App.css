@@ -13,10 +13,10 @@
 .sidebar {
   width: 270px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #0f6df2 0%, #0b4fb1 100%);
+  background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
   color: white;
   padding: 28px 20px;
-  box-shadow: 6px 0 24px rgba(15, 109, 242, 0.18);
+  box-shadow: 6px 0 24px rgba(220, 38, 38, 0.18);
 }
 
 .sidebar h2 {
@@ -110,7 +110,7 @@
 
 .info-card h2 {
   font-size: 2rem;
-  color: #0f6df2;
+  color: #dc2626;
 }
 
 .info-card h3 {
@@ -156,7 +156,7 @@
   border: none;
   border-radius: 10px;
   padding: 10px 14px;
-  background: #0f6df2;
+  background: #dc2626;
   color: white;
   cursor: pointer;
   transition: background 0.2s ease;
@@ -165,7 +165,7 @@
 .formulario button:hover,
 .busqueda button:hover,
 .tabla button:hover {
-  background: #0b4fb1;
+  background: #991b1b;
 }
 
 .mensaje {
@@ -210,7 +210,7 @@
 }
 
 .tabla tr:hover {
-  background: #f8fbff;
+  background: #fff5f5;
 }
 
 @media (max-width: 900px) {
@@ -222,10 +222,10 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    background: linear-gradient(180deg, #0f6df2 0%, #0b4fb1 100%);
+    background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
     color: white;
     padding: 14px 18px;
-    box-shadow: 0 6px 24px rgba(15, 109, 242, 0.18);
+    box-shadow: 0 6px 24px rgba(220, 38, 38, 0.18);
     position: sticky;
     top: 0;
     z-index: 300;
@@ -322,7 +322,7 @@
 
 /* ─── Botón Nuevo ─── */
 .btn-nuevo {
-  background: #0f6df2;
+  background: #dc2626;
   color: white;
   border: none;
   border-radius: 10px;
@@ -333,7 +333,7 @@
   transition: background 0.2s ease;
   white-space: nowrap;
 }
-.btn-nuevo:hover { background: #0b4fb1; }
+.btn-nuevo:hover { background: #991b1b; }
 
 /* ─── Header filtros ─── */
 .header-filtros {
@@ -560,11 +560,11 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  background: #0f6df2;
+  background: #dc2626;
   color: white;
   transition: background 0.15s ease;
 }
-.cliente-acciones button:hover { background: #0b4fb1; }
+.cliente-acciones button:hover { background: #991b1b; }
 .cliente-acciones .btn-danger { background: #ef4444; }
 .cliente-acciones .btn-danger:hover { background: #dc2626; }
 
@@ -620,13 +620,13 @@
 }
 .totales-label { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 .totales-valor { font-size: 1rem; font-weight: 700; color: #0f172a; }
-.totales-total .totales-valor { color: #0f6df2; font-size: 1.1rem; }
+.totales-total .totales-valor { color: #dc2626; font-size: 1.1rem; }
 .totales-sep { width: 1px; height: 32px; background: #e2e8f0; }
 
 /* ─── Botón carrito ─── */
 .btn-carrito {
   position: relative;
-  background: #0f6df2;
+  background: #dc2626;
   color: white;
   border: none;
   border-radius: 50%;
@@ -640,7 +640,7 @@
   transition: background 0.2s ease;
   flex-shrink: 0;
 }
-.btn-carrito:hover { background: #0b4fb1; }
+.btn-carrito:hover { background: #991b1b; }
 .carrito-badge {
   position: absolute;
   top: -4px;
@@ -741,7 +741,7 @@
 .producto-precio {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #0f6df2;
+  color: #dc2626;
 }
 .producto-stock {
   font-size: 0.72rem;
@@ -809,8 +809,8 @@
   border-radius: 20px;
   font-size: 0.7rem;
   font-weight: 600;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #fee2e2;
+  color: #991b1b;
   text-transform: capitalize;
 }
 .tag-presentacion-lg {
@@ -901,11 +901,11 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  background: #0f6df2;
+  background: #dc2626;
   color: white;
   transition: background 0.15s ease;
 }
-.cat-acciones button:hover { background: #0b4fb1; }
+.cat-acciones button:hover { background: #991b1b; }
 .cat-acciones .btn-danger { background: #ef4444; }
 .cat-acciones .btn-danger:hover { background: #dc2626; }
 
@@ -943,10 +943,10 @@
   align-items: center;
   justify-content: center;
 }
-.icono-btn:hover { background: #e0f2fe; }
+.icono-btn:hover { background: #fee2e2; }
 .icono-activo {
-  background: #dbeafe !important;
-  border-color: #0f6df2 !important;
+  background: #fecaca !important;
+  border-color: #dc2626 !important;
 }
 
 @media (max-width: 640px) {
@@ -974,7 +974,7 @@
 .reporte-card-val  { font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-top: 4px; }
 .reporte-card-label { font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
 .reporte-card-sub  { font-size: 0.82rem; color: #94a3b8; }
-.reporte-ventas  { border-top: 4px solid #0f6df2; }
+.reporte-ventas  { border-top: 4px solid #dc2626; }
 .reporte-compras { border-top: 4px solid #f59e0b; }
 .reporte-ganancia { border-top: 4px solid #10b981; }
 .reporte-ganancia .reporte-card-val { color: #16a34a; }
@@ -996,9 +996,9 @@
 }
 .btn-periodo:hover { background: #f1f5f9; }
 .btn-periodo-activo {
-  background: #0f6df2 !important;
+  background: #dc2626 !important;
   color: white !important;
-  border-color: #0f6df2 !important;
+  border-color: #dc2626 !important;
 }
 
 .rank-badge {
@@ -1035,8 +1035,8 @@
 .caja-ingreso .caja-card-val { color: #16a34a; }
 .caja-egreso   { border-top: 4px solid #ef4444; }
 .caja-egreso .caja-card-val  { color: #dc2626; }
-.caja-positivo { border-top: 4px solid #0f6df2; }
-.caja-positivo .caja-card-val { color: #0f6df2; }
+.caja-positivo { border-top: 4px solid #dc2626; }
+.caja-positivo .caja-card-val { color: #dc2626; }
 .caja-negativo { border-top: 4px solid #f59e0b; }
 .caja-negativo .caja-card-val { color: #d97706; }
 
@@ -1083,7 +1083,7 @@
   border-bottom: 1px solid #f1f5f9;
   transition: background 0.12s ease;
 }
-.cliente-dropdown-item:hover { background: #f0f9ff; }
+.cliente-dropdown-item:hover { background: #fef2f2; }
 .cliente-dropdown-item:last-child { border-bottom: none; }
 .cliente-dd-nombre { font-size: 0.88rem; font-weight: 600; color: #0f172a; }
 .cliente-dd-doc    { font-size: 0.76rem; color: #64748b; margin-top: 2px; }
@@ -1122,11 +1122,11 @@
   text-align: center;
   line-height: 1.3;
 }
-.tipo-comp-btn:hover { border-color: #0f6df2; background: #f0f9ff; }
+.tipo-comp-btn:hover { border-color: #dc2626; background: #fef2f2; }
 .tipo-comp-activo {
-  border-color: #0f6df2 !important;
-  background: #eff6ff !important;
-  color: #0f6df2 !important;
+  border-color: #dc2626 !important;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
 }
 
 /* ─── Preview voucher en modal comprobante ─── */
@@ -1178,7 +1178,7 @@
 }
 .config-paso-titulo { font-weight: 700; font-size: 0.88rem; color: #334155; margin-bottom: 8px; }
 .config-paso-lista  { padding-left: 18px; font-size: 0.85rem; color: #475569; line-height: 2; }
-.config-paso-lista a { color: #0f6df2; }
+.config-paso-lista a { color: #dc2626; }
 .config-nota {
   margin-top: 12px;
   font-size: 0.8rem;
@@ -1219,7 +1219,7 @@
   border-radius: 8px;
   transition: background 0.1s;
 }
-.present-tabla-row:hover { background: #eff6ff; }
+.present-tabla-row:hover { background: #fef2f2; }
 .present-nombre {
   font-size: 0.88rem;
   font-weight: 700;
@@ -1240,7 +1240,7 @@
   font-weight: 500;
   text-align: right;
 }
-.present-por-kilo-activo { color: #0f6df2; font-weight: 700; }
+.present-por-kilo-activo { color: #dc2626; font-weight: 700; }
 .present-costo-info {
   margin-top: 8px;
   font-size: 0.8rem;
@@ -1303,7 +1303,7 @@
 }
 .costo-input-grande:focus {
   outline: none;
-  border-color: #0f6df2;
+  border-color: #dc2626;
 }
 .costo-select {
   padding: 12px 14px;
@@ -1368,7 +1368,7 @@
 }
 .cat-lista-item:last-child { border-bottom: none; }
 .cat-lista-item:hover { background: #f8fafc; }
-.cat-lista-activa { background: #eff6ff !important; }
+.cat-lista-activa { background: #fef2f2 !important; }
 .cat-icono-sm {
   width: 34px;
   height: 34px;

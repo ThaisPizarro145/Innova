@@ -55,7 +55,7 @@ function exportarPDFReporte(datos, periodo) {
   const html = `<html><head><title>Reporte</title>
   <style>
     body{font-family:sans-serif;padding:24px;color:#1f2937}
-    h1{color:#0f6df2}
+    h1{color:#dc2626}
     .cards{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}
     .card{border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;min-width:140px}
     .card-label{font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase}
@@ -63,7 +63,7 @@ function exportarPDFReporte(datos, periodo) {
     .ganancia{color:#16a34a}
     table{width:100%;border-collapse:collapse;margin-top:16px}
     th,td{border:1px solid #e2e8f0;padding:7px 10px;font-size:12px}
-    th{background:#0f6df2;color:white}
+    th{background:#dc2626;color:white}
   </style></head>
   <body>
     <h1>📊 Reporte — ${periodo}</h1>

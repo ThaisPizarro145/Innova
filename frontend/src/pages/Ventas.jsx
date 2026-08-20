@@ -141,7 +141,7 @@ function ModalPresentacion({ producto, onConfirmar, onCerrar }) {
             <input
               type="number" min="0" step="0.01" value={precio}
               onChange={(e) => setPrecio(Number(e.target.value))}
-              style={{ fontWeight: 700, color: "#0f6df2", fontSize: "1.1rem", border: "2px solid #bfdbfe", background: "#eff6ff" }}
+              style={{ fontWeight: 700, color: "#dc2626", fontSize: "1.1rem", border: "2px solid #fca5a5", background: "#fef2f2" }}
             />
             <div style={{ marginTop: "4px" }}>
               <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
@@ -212,14 +212,14 @@ function ModalSelectorDocumento({ carrito, subtotal, igv, total, incluyeIgv, cli
           {TIPOS_COMPROBANTE.map((t) => (
             <label key={t.value} style={{
               display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px",
-              border: `2px solid ${tipoDoc === t.value ? "#0f6df2" : "#e2e8f0"}`,
+              border: `2px solid ${tipoDoc === t.value ? "#dc2626" : "#e2e8f0"}`,
               borderRadius: "12px", cursor: "pointer",
-              background: tipoDoc === t.value ? "#eff6ff" : "#fafafa",
+              background: tipoDoc === t.value ? "#fef2f2" : "#fafafa",
               transition: "all 0.15s",
             }}>
               <input type="radio" name="tipoDoc" value={t.value}
                 checked={tipoDoc === t.value} onChange={() => setTipoDoc(t.value)}
-                style={{ accentColor: "#0f6df2", width: "18px", height: "18px" }} />
+                style={{ accentColor: "#dc2626", width: "18px", height: "18px" }} />
               <span style={{ fontSize: "1.5rem" }}>{t.icon}</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{t.label}</div>
@@ -239,7 +239,7 @@ function ModalSelectorDocumento({ carrito, subtotal, igv, total, incluyeIgv, cli
           <div style={{ display: "flex", justifyContent: "space-between" }}><span>Productos:</span><span>{carrito.length} ítem(s)</span></div>
           <div style={{ display: "flex", justifyContent: "space-between" }}><span>Cliente:</span><span>{clienteSeleccionado ? (clienteSeleccionado.nombre || clienteSeleccionado.razon_social) : (busquedaCliente || "Cliente general")}</span></div>
           <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pago:</span><span>{formaPago}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginTop: "6px", fontSize: "1rem", color: "#0f6df2" }}><span>Total:</span><span>{fmt(total)}</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginTop: "6px", fontSize: "1rem", color: "#dc2626" }}><span>Total:</span><span>{fmt(total)}</span></div>
         </div>
 
         {rucInvalido && (
@@ -291,7 +291,7 @@ function ModalComprobante({ comprobante, onImprimir, onImprimirTermico, onImprim
               <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{getEmpresa().direccion}{getEmpresa().distrito ? ` - ${getEmpresa().distrito}` : ""}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 700, color: "#0f6df2" }}>{tipo.label.toUpperCase()}</div>
+              <div style={{ fontWeight: 700, color: "#dc2626" }}>{tipo.label.toUpperCase()}</div>
               <div style={{ fontSize: "0.82rem", color: "#475569" }}>{numeroCompleto}</div>
             </div>
           </div>
@@ -672,7 +672,7 @@ function Ventas() {
             <button type="button" title="Consultar SUNAT/RENIEC"
               disabled={consultando}
               onClick={() => consultarDoc(busquedaCliente)}
-              style={{ background: "#0f6df2", color: "white", border: "none", borderRadius: "8px", padding: "8px 10px", cursor: "pointer", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+              style={{ background: "#dc2626", color: "white", border: "none", borderRadius: "8px", padding: "8px 10px", cursor: "pointer", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
               {consultando ? "⏳" : "🔍 SUNAT/RENIEC"}
             </button>
             {clienteSeleccionado && (

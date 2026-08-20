@@ -222,7 +222,7 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
             className="btn-guardar"
             onClick={handleGuardar}
             disabled={guardando}
-            style={{ background: "#0f6df2", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}
+            style={{ background: "#dc2626", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}
           >
             {guardando ? "Guardando..." : (productoEditando ? "💾 Actualizar" : "💾 Crear producto")}
           </button>
