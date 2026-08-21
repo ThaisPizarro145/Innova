@@ -1,5 +1,5 @@
 from datetime import datetime, date, timedelta
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_
 from sqlalchemy.exc import IntegrityError, DataError
 from app import models, schemas
@@ -52,8 +52,69 @@ def enriquecer_producto(db: Session, producto: "models.Producto") -> "models.Pro
     return producto
 
 
+def enriquecer_productos_bulk(db: Session, productos: list) -> list:
+    """
+    Versión en lote de `enriquecer_producto`: calcula stock/costo/fechas para
+    varios productos con un puñado de queries en vez de una por producto
+    (4 queries x N productos), para no pagar N round-trips en listados como
+    `listar_productos`.
+    """
+    if not productos:
+        return productos
+
+    ids = [p.id for p in productos]
+
+    stock_por_producto = dict(
+        db.query(models.Lote.producto_id, func.coalesce(func.sum(models.Lote.cantidad_disponible), 0.0))
+        .filter(models.Lote.producto_id.in_(ids))
+        .group_by(models.Lote.producto_id)
+        .all()
+    )
+
+    movimientos = (
+        db.query(models.MovimientoInventario)
+        .filter(models.MovimientoInventario.producto_id.in_(ids), models.MovimientoInventario.tipo.in_(["ENTRADA", "SALIDA"]))
+        .order_by(models.MovimientoInventario.fecha.desc())
+        .all()
+    )
+    ultima_entrada_por_producto = {}
+    ultima_salida_por_producto = {}
+    for mov in movimientos:
+        if mov.tipo == "ENTRADA" and mov.producto_id not in ultima_entrada_por_producto:
+            ultima_entrada_por_producto[mov.producto_id] = mov
+        elif mov.tipo == "SALIDA" and mov.producto_id not in ultima_salida_por_producto:
+            ultima_salida_por_producto[mov.producto_id] = mov
+
+    lotes_vigentes = (
+        db.query(models.Lote)
+        .filter(
+            models.Lote.producto_id.in_(ids),
+            models.Lote.cantidad_disponible > 0,
+            models.Lote.fecha_vencimiento.isnot(None),
+        )
+        .order_by(models.Lote.fecha_vencimiento.asc())
+        .all()
+    )
+    proximo_lote_por_producto = {}
+    for lote in lotes_vigentes:
+        if lote.producto_id not in proximo_lote_por_producto:
+            proximo_lote_por_producto[lote.producto_id] = lote
+
+    for producto in productos:
+        producto.stock_actual = stock_por_producto.get(producto.id, 0.0)
+        entrada = ultima_entrada_por_producto.get(producto.id)
+        producto.ultimo_costo = entrada.costo_unitario if entrada else None
+        producto.ultima_compra = entrada.fecha.date() if entrada else None
+        salida = ultima_salida_por_producto.get(producto.id)
+        producto.ultima_venta = salida.fecha.date() if salida else None
+        lote = proximo_lote_por_producto.get(producto.id)
+        producto.proximo_vencimiento = lote.fecha_vencimiento if lote else None
+
+    return productos
+
+
 def listar_productos(db: Session, skip: int = 0, limit: int = 100, query: str = None):
-    productos = db.query(models.Producto).filter(models.Producto.eliminado == False)
+    productos = db.query(models.Producto).options(joinedload(models.Producto.categoria)).filter(models.Producto.eliminado == False)
     if query:
         busqueda = f"%{query}%"
         productos = productos.join(models.Categoria, models.Producto.categoria_id == models.Categoria.id, isouter=True).filter(
@@ -62,9 +123,8 @@ def listar_productos(db: Session, skip: int = 0, limit: int = 100, query: str = 
             | models.Producto.marca.ilike(busqueda)
             | models.Categoria.nombre.ilike(busqueda)
         )
-    resultado = productos.offset(skip).limit(limit).all()
-    for producto in resultado:
-        enriquecer_producto(db, producto)
+    resultado = productos.order_by(models.Producto.id.desc()).offset(skip).limit(limit).all()
+    enriquecer_productos_bulk(db, resultado)
     return resultado
 
 

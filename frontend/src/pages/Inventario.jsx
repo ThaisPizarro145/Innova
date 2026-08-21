@@ -166,7 +166,6 @@ function Inventario() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
         <div>
           <h1 style={{ margin: 0 }}>📋 Inventario</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "#64748b" }}>Solo consulta: el stock cambia vía Compras, Ventas o un ajuste manual.</p>
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {tab === "kardex" && <button type="button" className="btn-export" onClick={exportarMovimientosExcel}>⬇ Excel</button>}
@@ -182,7 +181,7 @@ function Inventario() {
               <h2>➕ Ajuste de inventario</h2>
               <button type="button" className="btn-cerrar" onClick={resetAjuste}>✕</button>
             </div>
-            <div className="formulario-grid">
+            <form className="formulario-grid" onSubmit={(e) => { e.preventDefault(); crearAjuste(); }}>
               <div className="campo campo-full">
                 <label>Producto *</label>
                 <select value={ajusteForm.producto_id} onChange={(e) => setAjusteForm({ ...ajusteForm, producto_id: e.target.value })}>
@@ -231,12 +230,12 @@ function Inventario() {
               </div>
               {mensaje && <p className="mensaje campo-full">{mensaje}</p>}
               <div className="modal-acciones campo-full">
-                <button type="button" className="btn-nuevo" onClick={crearAjuste}>💾 Guardar ajuste</button>
+                <button type="submit" className="btn-nuevo">💾 Guardar ajuste</button>
                 <button type="button" className="btn-cancelar"
                   style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }}
                   onClick={resetAjuste}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -249,7 +248,7 @@ function Inventario() {
               <h2>✏️ Editar ajuste #{movEdit.id}</h2>
               <button type="button" className="btn-cerrar" onClick={() => setMovEdit(null)}>✕</button>
             </div>
-            <div className="formulario-grid">
+            <form className="formulario-grid" onSubmit={(e) => { e.preventDefault(); guardarEdicion(); }}>
               <div className="campo campo-full" style={{ background: "#f8fafc", borderRadius: "10px", padding: "10px 14px" }}>
                 <span style={{ fontSize: "0.85rem", color: "#475569" }}>
                   Producto: <strong>{nombreProducto(movEdit.producto_id)}</strong>
@@ -275,12 +274,12 @@ function Inventario() {
               </div>
               {mensaje && <p className="mensaje campo-full">{mensaje}</p>}
               <div className="modal-acciones campo-full">
-                <button type="button" className="btn-nuevo" onClick={guardarEdicion}>💾 Guardar cambios</button>
+                <button type="submit" className="btn-nuevo">💾 Guardar cambios</button>
                 <button type="button" className="btn-cancelar"
                   style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }}
                   onClick={() => setMovEdit(null)}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

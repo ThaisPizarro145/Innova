@@ -58,7 +58,7 @@ function App() {
         >
           {menuAbierto ? "✕" : "☰"}
         </button>
-        <h2>🏪 BodegaSys</h2>
+        <h2>🏪 InnovaPeru</h2>
       </header>
 
       {menuAbierto && (
@@ -66,7 +66,7 @@ function App() {
       )}
 
       <aside className={`sidebar ${menuAbierto ? "sidebar-abierto" : ""}`}>
-        <h2 className="sidebar-titulo">🏪 BodegaSys</h2>
+        <h2 className="sidebar-titulo">🏪 InnovaPeru</h2>
         <ul>
           {ENLACES.map((enlace) => (
             <li key={enlace.to}>

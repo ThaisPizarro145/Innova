@@ -59,6 +59,11 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
 
   const set = (campo, valor) => setForm((p) => ({ ...p, [campo]: valor }));
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleGuardar();
+  };
+
   const handleGuardar = async () => {
     if (!form.nombre?.trim()) {
       setMensaje("El nombre es obligatorio.");
@@ -113,7 +118,7 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
           <button type="button" className="btn-cerrar" onClick={onCancelar}>✕</button>
         </div>
 
-        <div className="formulario-grid">
+        <form className="formulario-grid" onSubmit={handleSubmit}>
           <div className="campo">
             <label>Nombre *</label>
             <input value={form.nombre} onChange={(e) => set("nombre", e.target.value)} required placeholder="Ej: Paracetamol 500mg" />
@@ -202,31 +207,30 @@ export default function FormularioProducto({ productoEditando, categorias, onGua
             <input type="number" min="0" step="0.01" value={form.stock_minimo}
               onChange={(e) => set("stock_minimo", e.target.value)} placeholder="0" />
           </div>
-        </div>
 
-        {mensaje && (
-          <div style={{
-            margin: "12px 0", padding: "10px 14px", borderRadius: "8px",
-            background: "#fef2f2", color: "#991b1b", fontSize: "0.85rem",
-          }}>
-            {mensaje}
+          {mensaje && (
+            <div className="campo-full" style={{
+              margin: "12px 0", padding: "10px 14px", borderRadius: "8px",
+              background: "#fef2f2", color: "#991b1b", fontSize: "0.85rem",
+            }}>
+              {mensaje}
+            </div>
+          )}
+
+          <div className="campo-full" style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
+            <button type="button" className="btn-cancelar" onClick={onCancelar} disabled={guardando}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn-guardar"
+              disabled={guardando}
+              style={{ background: "#dc2626", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}
+            >
+              {guardando ? "Guardando..." : (productoEditando ? "💾 Actualizar" : "💾 Crear producto")}
+            </button>
           </div>
-        )}
-
-        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
-          <button type="button" className="btn-cancelar" onClick={onCancelar} disabled={guardando}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="btn-guardar"
-            onClick={handleGuardar}
-            disabled={guardando}
-            style={{ background: "#dc2626", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}
-          >
-            {guardando ? "Guardando..." : (productoEditando ? "💾 Actualizar" : "💾 Crear producto")}
-          </button>
-        </div>
+        </form>
       </div>
     </div>
   );

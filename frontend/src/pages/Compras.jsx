@@ -316,9 +316,6 @@ export default function Compras() {
       {/* Título */}
       <div className="compras-header">
         <h2>🛒 Entrada de Compras</h2>
-        <p className="compras-subtitulo">
-          Registra compras a proveedor con cálculo automático de costos y precios sugeridos.
-        </p>
       </div>
 
       {/* Tabs */}

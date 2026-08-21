@@ -238,7 +238,7 @@ export default function Caja() {
               <h2>🔓 Abrir caja</h2>
               <button type="button" className="btn-cerrar" onClick={() => setMostrarApertura(false)}>✕</button>
             </div>
-            <div className="formulario-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <form className="formulario-grid" style={{ gridTemplateColumns: "1fr" }} onSubmit={(e) => { e.preventDefault(); handleAbrirCaja(); }}>
               <div className="campo">
                 <label>Monto inicial (S/)</label>
                 <input type="number" min="0" step="0.01" value={montoInicial}
@@ -246,10 +246,10 @@ export default function Caja() {
               </div>
               {mensaje && <p className="mensaje">{mensaje}</p>}
               <div className="modal-acciones">
-                <button type="button" className="btn-nuevo" onClick={handleAbrirCaja}>💾 Abrir</button>
+                <button type="submit" className="btn-nuevo">💾 Abrir</button>
                 <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setMostrarApertura(false)}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -262,7 +262,7 @@ export default function Caja() {
               <h2>🔒 Cerrar caja</h2>
               <button type="button" className="btn-cerrar" onClick={() => setMostrarCierre(false)}>✕</button>
             </div>
-            <div className="formulario-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <form className="formulario-grid" style={{ gridTemplateColumns: "1fr" }} onSubmit={(e) => { e.preventDefault(); handleCerrarCaja(); }}>
               <div className="campo">
                 <label>Monto contado en caja (S/)</label>
                 <input type="number" min="0" step="0.01" value={montoContado}
@@ -270,10 +270,10 @@ export default function Caja() {
               </div>
               {mensaje && <p className="mensaje">{mensaje}</p>}
               <div className="modal-acciones">
-                <button type="button" className="btn-nuevo" onClick={handleCerrarCaja}>💾 Cerrar caja</button>
+                <button type="submit" className="btn-nuevo">💾 Cerrar caja</button>
                 <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setMostrarCierre(false)}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -423,7 +423,7 @@ export default function Caja() {
               <h2>➕ Nuevo movimiento de caja</h2>
               <button type="button" className="btn-cerrar" onClick={() => setMostrarForm(false)}>✕</button>
             </div>
-            <div className="formulario-grid">
+            <form className="formulario-grid" onSubmit={(e) => { e.preventDefault(); guardar(); }}>
               {/* Tipo: Ingreso / Egreso */}
               <div className="campo campo-full">
                 <label>Tipo</label>
@@ -471,10 +471,10 @@ export default function Caja() {
               </div>
               {mensaje && <p className="mensaje campo-full">{mensaje}</p>}
               <div className="modal-acciones campo-full">
-                <button type="button" className="btn-nuevo" onClick={guardar}>💾 Guardar</button>
+                <button type="submit" className="btn-nuevo">💾 Guardar</button>
                 <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={() => setMostrarForm(false)}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

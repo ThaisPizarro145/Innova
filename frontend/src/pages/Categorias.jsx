@@ -114,17 +114,17 @@ export default function Categorias() {
               <h2>{editandoId !== null ? "✏️ Editar categoría" : "➕ Nueva categoría"}</h2>
               <button type="button" className="btn-cerrar" onClick={limpiar}>✕</button>
             </div>
-            <div className="formulario-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <form className="formulario-grid" style={{ gridTemplateColumns: "1fr" }} onSubmit={(e) => { e.preventDefault(); guardar(); }}>
               <div className="campo">
                 <label>Nombre *</label>
                 <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Analgésicos, Antibióticos, Vitaminas..." autoFocus />
               </div>
               {mensaje && <p className="mensaje">{mensaje}</p>}
               <div className="modal-acciones">
-                <button type="button" className="btn-nuevo" onClick={guardar}>{editandoId !== null ? "✏️ Actualizar" : "💾 Guardar"}</button>
+                <button type="submit" className="btn-nuevo">{editandoId !== null ? "✏️ Actualizar" : "💾 Guardar"}</button>
                 <button type="button" className="btn-cancelar" style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }} onClick={limpiar}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

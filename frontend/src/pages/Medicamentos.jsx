@@ -19,11 +19,17 @@ const fmtNum = (v, dec = 2) => (Number(v || 0) % 1 === 0 ? String(Number(v || 0)
 
 const CAT_COLOR_DEFAULT = "#64748b";
 
-/** Texto de equivalencia de empaque a partir de unidades_por_caja / unidades_por_blister. */
-function equivalenciaLabel(producto) {
+/** Partes de equivalencia de empaque a partir de unidades_por_caja / unidades_por_blister. */
+function equivalenciaPartes(producto) {
   const partes = [];
   if (producto.unidades_por_caja > 0) partes.push(`1 Caja = ${producto.unidades_por_caja} Unidades`);
   if (producto.unidades_por_blister > 0) partes.push(`1 Blíster = ${producto.unidades_por_blister} Unidades`);
+  return partes;
+}
+
+/** Texto de equivalencia de empaque a partir de unidades_por_caja / unidades_por_blister. */
+function equivalenciaLabel(producto) {
+  const partes = equivalenciaPartes(producto);
   return partes.length > 0 ? partes.join(" · ") : null;
 }
 
@@ -47,6 +53,11 @@ function ModalPrecios({ producto, onGuardar, onCerrar }) {
     try { await onGuardar(precios); } finally { setGuardando(false); }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleGuardar();
+  };
+
   const ganancia = (precio, costo) => {
     if (!costo || !precio) return null;
     return (((precio - costo) / costo) * 100).toFixed(1);
@@ -68,7 +79,7 @@ function ModalPrecios({ producto, onGuardar, onCerrar }) {
         <div style={{ marginBottom: "12px", fontSize: "0.85rem", color: "#475569" }}>
           <strong>{producto.nombre}</strong> · Costo base: <strong>{fmt(costoBase)}/Unidad</strong>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {presentaciones.map((pres) => {
             const costoEst = costoEstimado(pres);
             const g = ganancia(precios[pres], costoEst);
@@ -104,15 +115,15 @@ function ModalPrecios({ producto, onGuardar, onCerrar }) {
               </div>
             );
           })}
-        </div>
-        <div className="modal-acciones" style={{ marginTop: "16px" }}>
-          <button type="button" className="btn-nuevo" onClick={handleGuardar} disabled={guardando}>
-            {guardando ? "Guardando..." : "💾 Guardar precios"}
-          </button>
-          <button type="button" className="btn-cancelar"
-            style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }}
-            onClick={onCerrar}>Cancelar</button>
-        </div>
+          <div className="modal-acciones" style={{ marginTop: "16px" }}>
+            <button type="submit" className="btn-nuevo" disabled={guardando}>
+              {guardando ? "Guardando..." : "💾 Guardar precios"}
+            </button>
+            <button type="button" className="btn-cancelar"
+              style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "10px 18px", cursor: "pointer" }}
+              onClick={onCerrar}>Cancelar</button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -337,7 +348,6 @@ function Medicamentos() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.5rem" }}>📦 Productos</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "#64748b" }}>Catálogo de productos · Presentaciones · Precios por presentación</p>
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <button type="button" className="btn-export" onClick={exportarProductosExcel}>⬇ Excel</button>
@@ -429,7 +439,7 @@ function Medicamentos() {
                 <tr><td colSpan="7" style={{ textAlign: "center", color: "#94a3b8", padding: "24px" }}>Sin productos</td></tr>
               ) : productosFiltrados.map((p) => {
                 const presentaciones = Object.keys(p.precios_presentacion || {}).filter((k) => Number(p.precios_presentacion[k]) > 0);
-                const equivStr = equivalenciaLabel(p) || "—";
+                const equivPartes = equivalenciaPartes(p);
                 const stock = Number(p.stock_actual || 0);
                 const stockBajo = stock <= Number(p.stock_minimo || 0);
                 const color = p.categoria?.color || CAT_COLOR_DEFAULT;
@@ -443,7 +453,11 @@ function Medicamentos() {
                         </span>
                       ) : "—"}
                     </td>
-                    <td style={{ fontSize: "0.8rem", color: "#475569" }}>{equivStr}</td>
+                    <td style={{ fontSize: "0.8rem", color: "#475569", whiteSpace: "normal", maxWidth: "160px" }}>
+                      {equivPartes.length > 0
+                        ? equivPartes.map((parte, i) => <div key={i}>{parte}</div>)
+                        : "—"}
+                    </td>
                     <td style={{ fontWeight: 600 }}>{fmt(p.ultimo_costo)}<br /><span style={{ fontSize: "0.68rem", color: "#94a3b8" }}>/Unidad</span></td>
                     <td>
                       <span style={{ color: stockBajo ? "#dc2626" : "#16a34a", fontWeight: 600, fontSize: "0.82rem" }}>

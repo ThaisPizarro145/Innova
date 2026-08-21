@@ -95,7 +95,7 @@ function Proveedores() {
               <h2>{editandoId !== null ? "✏️ Editar proveedor" : "➕ Nuevo proveedor"}</h2>
               <button type="button" className="btn-cerrar" onClick={limpiarFormulario}>✕</button>
             </div>
-            <div className="formulario-grid">
+            <form className="formulario-grid" onSubmit={(e) => { e.preventDefault(); guardar(); }}>
               <div className="campo campo-full"><label>Nombre</label>
                 <input name="nombre" value={proveedor.nombre} onChange={cambiarValor} placeholder="Ej: Distribuidora Salud SAC" />
               </div>
@@ -110,10 +110,10 @@ function Proveedores() {
               </div>
               {mensaje && <p className="mensaje campo-full">{mensaje}</p>}
               <div className="modal-acciones campo-full">
-                <button type="button" onClick={guardar}>{editandoId !== null ? "✏️ Actualizar" : "💾 Guardar"}</button>
+                <button type="submit">{editandoId !== null ? "✏️ Actualizar" : "💾 Guardar"}</button>
                 <button type="button" className="btn-cancelar" onClick={limpiarFormulario}>Cancelar</button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
